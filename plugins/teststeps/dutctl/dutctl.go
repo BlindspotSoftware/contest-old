@@ -29,14 +29,16 @@ import (
 // Name is the name used to look this plugin up.
 var Name = "dutctl"
 
+// We need a default timeout to avoid endless running tests.
+const defaultTimeoutParameter = "10m"
+
 // Dutctl is used to retrieve all the parameter, the plugin needs.
 type Dutctl struct {
-	serverAddr *test.Param // Addr to the server where the dut is running.
-	command    *test.Param // Command that shall be run on the dut.
-	argument   *test.Param // Argument that the command need.
-	binary     *test.Param // Binary to write or read.
-	substring  *test.Param // Substring that is expected in the serial.
-	timeout    *test.Param // Timeout after that the cmd will terminate.
+	serverAddr *test.Param  // Addr to the server where the dut is running.
+	command    *test.Param  // Command that shall be run on the dut.
+	args       []test.Param // Arguments that the command need.
+	expect     *test.Param  // Expect is the string expected in the serial.
+	timeout    *test.Param  // Timeout after that the cmd will terminate.
 }
 
 // Name returns the plugin name.
@@ -78,47 +80,44 @@ func (d *Dutctl) Run(ctx xcontext.Context, ch test.TestStepChannels, params test
 		var stdout dut.LogginFunc
 		var o dut.FlashOptions
 
-		// expand args
+		// expand all variables
 		serverAddr, err := d.serverAddr.Expand(target)
 		if err != nil {
-			return fmt.Errorf("failed to expand argument 'serverAddr': %v", err)
+			return fmt.Errorf("failed to expand variable 'serverAddr': %v", err)
 		}
+
 		command, err := d.command.Expand(target)
 		if err != nil {
-			return fmt.Errorf("failed to expand argument 'command': %v", err)
-		}
-		argument, err := d.argument.Expand(target)
-		if err != nil {
-			return fmt.Errorf("failed to expand argument 'argument': %v", err)
-		}
-		binary, err := d.binary.Expand(target)
-		if err != nil {
-			return fmt.Errorf("failed to expand argument 'binary': %v", err)
-		}
-		substring, err := d.substring.Expand(target)
-		if substring == "" && command == "serial" {
-			return fmt.Errorf("'substring' has to be set if you want to use the command 'serial'")
-
-		}
-		if err != nil {
-			return fmt.Errorf("failed to expand argument 'substring': %v", err)
-		}
-		timeoutStr, err := d.timeout.Expand(target)
-		if timeoutStr == "" && command == "serial" {
-			return fmt.Errorf("'timeout' has to be set if you want to use the command 'serial'")
-
-		}
-		if err != nil {
-			return fmt.Errorf("failed to expand argument 'timeout' %s: %v", timeoutStr, err)
+			return fmt.Errorf("failed to expand variable 'command': %v", err)
 		}
 
-		if timeoutStr != "" {
-			Timeout, err = time.ParseDuration(timeoutStr)
+		var args []string
+		for _, arg := range d.args {
+			earg, err := arg.Expand(target)
 			if err != nil {
-				return fmt.Errorf("cannot parse timeout parameter: %v", err)
+				return fmt.Errorf("failed to expand array 'args': %v", err)
 			}
-			TimeTimeout = time.Now().Add(Timeout)
+			args = append(args, earg)
 		}
+
+		expect, err := d.expect.Expand(target)
+		if expect == "" && command == "serial" {
+			return fmt.Errorf("'expect' has to be set if you want to use the command 'serial'")
+
+		}
+		if err != nil {
+			return fmt.Errorf("failed to expand args 'expect': %v", err)
+		}
+
+		timeoutStr, err := d.timeout.Expand(target)
+		if err != nil {
+			return fmt.Errorf("failed to expand args 'timeout' %s: %v", timeoutStr, err)
+		}
+		Timeout, err = time.ParseDuration(timeoutStr)
+		if err != nil {
+			return fmt.Errorf("cannot parse timeout parameter: %v", err)
+		}
+		TimeTimeout = time.Now().Add(Timeout)
 
 		if serverAddr != "" {
 			var certFile string
@@ -164,24 +163,30 @@ func (d *Dutctl) Run(ctx xcontext.Context, ch test.TestStepChannels, params test
 			if err != nil {
 				return fmt.Errorf("Failed to init power plugins: %v\n", err)
 			}
-			switch argument {
-			case "on":
-				err = dutInterface.PowerOn()
-				if err != nil {
-					return fmt.Errorf("Failed to power on: %v\n", err)
+			if len(args) >= 1 {
+				switch args[0] {
+				case "on":
+					err = dutInterface.PowerOn()
+					if err != nil {
+						return fmt.Errorf("Failed to power on: %v\n", err)
+					}
+					log.Infof("dut powered on.")
+					if expect != "" {
+						if err := serial(ctx, dutInterface, expect); err != nil {
+							return fmt.Errorf("the expect %q was not found in the logs", expect)
+						}
+					}
+				case "off":
+					err = dutInterface.PowerOff()
+					if err != nil {
+						return fmt.Errorf("Failed to power off: %v\n", err)
+					}
+					log.Infof("dut powered off.")
+				default:
+					return fmt.Errorf("Failed to execute the power command. The argument %q is not valid. Possible values are 'on' and 'off'.", args)
 				}
-				log.Infof("dut powered on.")
-				if substring != "" {
-					serial(ctx, dutInterface, substring)
-				}
-			case "off":
-				err = dutInterface.PowerOff()
-				if err != nil {
-					return fmt.Errorf("Failed to power off: %v\n", err)
-				}
-				log.Infof("dut powered off.")
-			default:
-				return fmt.Errorf("Failed to execute the power command. The argument %q is not valid. Possible values are 'on' and 'off'.", argument)
+			} else {
+				return fmt.Errorf("Failed to execute the power command. Args is empty. Possible values are 'on' and 'off'.")
 			}
 		case "flash":
 			err = dutInterface.InitPowerPlugins(stdout)
@@ -193,78 +198,85 @@ func (d *Dutctl) Run(ctx xcontext.Context, ch test.TestStepChannels, params test
 				return fmt.Errorf("Failed to init programmer plugins: %v\n", err)
 			}
 
-			switch argument {
-			case "read", "write", "verify":
-				if binary == "" {
-					return fmt.Errorf("No file was set to read, write or verify: %v\n", err)
+			if len(args) >= 2 {
+				switch args[0] {
+				case "read", "write", "verify":
+					if args[1] == "" {
+						return fmt.Errorf("No file was set to read, write or verify: %v\n", err)
+					}
+				default:
+					return fmt.Errorf("Failed to execute the flash command. The argument %q is not valid. Possible values are 'read /path/to/binary', 'write /path/to/binary' and 'verify /path/to/binary'.", args)
 				}
-			default:
-				return fmt.Errorf("Failed to execute the flash command. The argument %q is not valid. Possible values are 'read', 'write' and 'verify'.", argument)
+
+				switch args[0] {
+				case "read":
+					s, err := dutInterface.FlashSupportsRead()
+					if err != nil {
+						return fmt.Errorf("Error calling FlashSupportsRead\n")
+					}
+					if !s {
+						return fmt.Errorf("Programmer doesn't support read op\n")
+					}
+
+					rom, err := dutInterface.FlashRead()
+					if err != nil {
+						return fmt.Errorf("Fail to read: %v\n", err)
+					}
+
+					err = ioutil.WriteFile(args[1], rom, 0660)
+					if err != nil {
+						return fmt.Errorf("Failed to write file: %v\n", err)
+					}
+
+					log.Infof("dut flash was read.")
+				case "write":
+					rom, err := ioutil.ReadFile(args[1])
+					if err != nil {
+						return fmt.Errorf("File '%s' could not be read successfully: %v\n", args[1], err)
+					}
+
+					err = dutInterface.FlashWrite(rom, &o)
+					if err != nil {
+						return fmt.Errorf("Failed to write rom: %v\n", err)
+					}
+
+					log.Infof("dut flash was written.")
+
+				case "verify":
+					s, err := dutInterface.FlashSupportsVerify()
+					if err != nil {
+						return fmt.Errorf("FlashSupportsVerify returned error: %v\n", err)
+					}
+
+					if !s {
+						return fmt.Errorf("Programmer doesn't support verify op\n")
+					}
+
+					rom, err := ioutil.ReadFile(args[1])
+					if err != nil {
+						return fmt.Errorf("File could not be read successfully: %v", err)
+					}
+
+					err = dutInterface.FlashVerify(rom)
+					if err != nil {
+						return fmt.Errorf("Failed to verify: %v\n", err)
+					}
+
+					log.Infof("dut flash was verified.")
+
+				default:
+					return fmt.Errorf("Failed to execute the flash command. The argument %q is not valid. Possible values are 'read /path/to/binary', 'write /path/to/binary' and 'verify /path/to/binary'.", args)
+				}
+			} else {
+				return fmt.Errorf("Failed to execute the power command. Args is not valid. Possible values are 'read /path/to/binary', 'write /path/to/binary' and 'verify /path/to/binary'.")
 			}
 
-			switch argument {
-			case "read":
-				s, err := dutInterface.FlashSupportsRead()
-				if err != nil {
-					return fmt.Errorf("Error calling FlashSupportsRead\n")
-				}
-				if !s {
-					return fmt.Errorf("Programmer doesn't support read op\n")
-				}
-
-				rom, err := dutInterface.FlashRead()
-				if err != nil {
-					return fmt.Errorf("Fail to read: %v\n", err)
-				}
-
-				err = ioutil.WriteFile(binary, rom, 0660)
-				if err != nil {
-					return fmt.Errorf("Failed to write file: %v\n", err)
-				}
-
-				log.Infof("dut flash was read.")
-			case "write":
-				rom, err := ioutil.ReadFile(binary)
-				if err != nil {
-					return fmt.Errorf("File '%s' could not be read successfully: %v\n", binary, err)
-				}
-
-				err = dutInterface.FlashWrite(rom, &o)
-				if err != nil {
-					return fmt.Errorf("Failed to write rom: %v\n", err)
-				}
-
-				log.Infof("dut flash was written.")
-
-			case "verify":
-				s, err := dutInterface.FlashSupportsVerify()
-				if err != nil {
-					return fmt.Errorf("FlashSupportsVerify returned error: %v\n", err)
-				}
-
-				if !s {
-					return fmt.Errorf("Programmer doesn't support verify op\n")
-				}
-
-				rom, err := ioutil.ReadFile(binary)
-				if err != nil {
-					return fmt.Errorf("File could not be read successfully: %v", err)
-				}
-
-				err = dutInterface.FlashVerify(rom)
-				if err != nil {
-					return fmt.Errorf("Failed to verify: %v\n", err)
-				}
-
-				log.Infof("dut flash was verified.")
-
-			default:
-				return fmt.Errorf("Failed to execute the flash command. The argument %q is not valid. Possible values are 'read', 'write' and 'verify'.", argument)
-			}
 		case "serial":
-			serial(ctx, dutInterface, substring)
+			if err := serial(ctx, dutInterface, expect); err != nil {
+				return fmt.Errorf("the expected string %q was not found in the logs", expect)
+			}
 		default:
-			return fmt.Errorf("Command %q is not valid. Possible values are 'power', 'flash' and 'serial'.", argument)
+			return fmt.Errorf("Command %q is not valid. Possible values are 'power', 'flash' and 'serial'.", args)
 		}
 
 		return nil
@@ -286,19 +298,18 @@ func (d *Dutctl) validateAndPopulate(params test.TestStepParameters) error {
 	if d.command.IsEmpty() {
 		return fmt.Errorf("missing or empty 'command' parameter")
 	}
-	// validate the dutctl cmd argument
-	d.argument = params.GetOne("argument")
-	if d.argument.IsEmpty() {
-		return fmt.Errorf("missing or empty 'argument' parameter")
-	}
-	// validate the dutctl cmd binary
-	d.binary = params.GetOne("binary")
+	// validate the dutctl cmd args
+	d.args = params.Get("args")
 
-	// validate the dutctl cmd substring
-	d.substring = params.GetOne("substring")
+	// validate the dutctl cmd expect
+	d.expect = params.GetOne("expect")
 
 	// validate the dutctl cmd timeout
-	d.timeout = params.GetOne("timeout")
+	if params.GetOne("timeout").IsEmpty() {
+		d.timeout = test.NewParam(defaultTimeoutParameter)
+	} else {
+		d.timeout = params.GetOne("timeout")
+	}
 
 	return nil
 }
@@ -318,7 +329,7 @@ func Load() (string, test.TestStepFactory, []event.Name) {
 	return Name, New, nil
 }
 
-func serial(ctx xcontext.Context, dutInterface dutctl.DutCtl, substring string) error {
+func serial(ctx xcontext.Context, dutInterface dutctl.DutCtl, expect string) error {
 	log := ctx.Logger()
 
 	err := dutInterface.InitSerialPlugins()
@@ -377,9 +388,10 @@ func serial(ctx xcontext.Context, dutInterface dutctl.DutCtl, substring string) 
 			case <-ctx.Done():
 				return nil
 			default:
-				_, err = io.Copy(dst, iface)
+				writer := io.MultiWriter(os.Stdout, dst)
+				_, err = io.Copy(writer, iface)
 				if err != nil {
-					return fmt.Errorf("Failed to copy serial to buffer: %v", err)
+					return fmt.Errorf("Failed to copy serial to stdout: %v", err)
 				}
 			}
 		}
@@ -395,7 +407,7 @@ func serial(ctx xcontext.Context, dutInterface dutctl.DutCtl, substring string) 
 		if err != nil {
 			return fmt.Errorf("Failed to read serial file: %v", err)
 		}
-		if strings.Contains(string(serial), substring) {
+		if strings.Contains(string(serial), expect) {
 			ctx.Done()
 			return nil
 		}
