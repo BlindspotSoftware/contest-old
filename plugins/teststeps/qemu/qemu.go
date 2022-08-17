@@ -150,7 +150,8 @@ func (q *Qemu) Run(ctx xcontext.Context, ch test.TestStepChannels, params test.T
 			return fmt.Errorf("Could not Parse %v as Timeout: %w", targetTimeout, err)
 		}
 
-		command := []string{targetQemu, "-nographic", "-bios", targetFirmware}
+		// no graphical output and no network access
+		command := []string{targetQemu, "-nographic", "-nic none", "-bios", targetFirmware}
 		qemuOpts := []string{"-m", targetMem, "-smp", targetNproc}
 
 		command = append(command, qemuOpts...)
