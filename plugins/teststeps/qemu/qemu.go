@@ -151,7 +151,7 @@ func (q *Qemu) Run(ctx xcontext.Context, ch test.TestStepChannels, params test.T
 		}
 
 		// no graphical output and no network access
-		command := []string{targetQemu, "-nographic", "-nic none", "-bios", targetFirmware}
+		command := []string{targetQemu, "-nographic", "-nic", "none", "-bios", targetFirmware}
 		qemuOpts := []string{"-m", targetMem, "-smp", targetNproc}
 
 		command = append(command, qemuOpts...)
@@ -190,6 +190,15 @@ func (q *Qemu) Run(ctx xcontext.Context, ch test.TestStepChannels, params test.T
 		log.Infof("Started Qemu with command: %v", command)
 
 		defer gExpect.Close()
+
+		defer func() {
+			select {
+			case err = <-errchan:
+				log.Errorf("Error from Qemu: %v", err)
+			default:
+
+			}
+		}()
 
 		// struct to capture expect and send strings from json.
 		type expector struct {
@@ -254,13 +263,6 @@ func (q *Qemu) Run(ctx xcontext.Context, ch test.TestStepChannels, params test.T
 
 				log.Debugf("Completed Send Step: '%v'", dst.Send)
 			}
-		}
-
-		select {
-		case err = <-errchan:
-			return err
-		default:
-
 		}
 
 		log.Infof("Matching steps successful")
