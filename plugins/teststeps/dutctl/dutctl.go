@@ -182,8 +182,28 @@ func (d *Dutctl) Run(ctx xcontext.Context, ch test.TestStepChannels, params test
 						return fmt.Errorf("Failed to power off: %v\n", err)
 					}
 					log.Infof("dut powered off.")
+				case "powercycle":
+					if len(args) == 2 {
+						for _ := range args[1] {
+							err = dutInterface.PowerOn()
+							if err != nil {
+								return fmt.Errorf("Failed to power on: %v\n", err)
+							}
+							log.Infof("dut powered on.")
+							if expect != "" {
+								if err := serial(ctx, dutInterface, expect); err != nil {
+									return fmt.Errorf("the expect %q was not found in the logs", expect)
+								}
+							}
+							err = dutInterface.PowerOff()
+							if err != nil {
+								return fmt.Errorf("Failed to power off: %v\n", err)
+							}
+							log.Infof("dut powered off.")
+						}
+					}
 				default:
-					return fmt.Errorf("Failed to execute the power command. The argument %q is not valid. Possible values are 'on' and 'off'.", args)
+					return fmt.Errorf("Failed to execute the power command. The argument %q is not valid. Possible values are 'on', 'off' and 'powercycle'.", args)
 				}
 			} else {
 				return fmt.Errorf("Failed to execute the power command. Args is empty. Possible values are 'on' and 'off'.")
