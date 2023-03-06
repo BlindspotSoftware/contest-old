@@ -25,7 +25,9 @@ type Endpoint struct {
 	buffer io.Reader
 }
 
-type GRPCListener struct{}
+type GRPCListener struct {
+	listenAddr string
+}
 
 type GRPCServer struct {
 	ctx       xcontext.Context
