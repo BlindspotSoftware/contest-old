@@ -72,7 +72,7 @@ func (ts SSHCmd) Name() string {
 }
 
 // Run executes the cmd step.
-func (ts *SSHCmd) Run(ctx xcontext.Context, ch test.TestStepChannels, params test.TestStepParameters, ev testevent.Emitter, resumeState json.RawMessage) (json.RawMessage, error) {
+func (ts *SSHCmd) Run(ctx xcontext.Context, ch test.TestStepChannels, bundle test.TestStepBundle, ev testevent.Emitter, resumeState json.RawMessage) (json.RawMessage, error) {
 	log := ctx.Logger()
 
 	// XXX: Dragons ahead! The target (%t) substitution, and function
@@ -83,7 +83,7 @@ func (ts *SSHCmd) Run(ctx xcontext.Context, ch test.TestStepChannels, params tes
 	// backend or a random pool of results)
 	// Function evaluation could be done at validation time, but target
 	// substitution cannot, because the targets are not known at that time.
-	if err := ts.validateAndPopulate(params); err != nil {
+	if err := ts.validateAndPopulate(bundle.Parameters); err != nil {
 		return nil, err
 	}
 

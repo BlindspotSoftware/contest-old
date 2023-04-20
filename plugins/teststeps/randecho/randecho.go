@@ -54,7 +54,7 @@ func (e Step) Name() string {
 }
 
 // Run executes the step
-func (e Step) Run(ctx xcontext.Context, ch test.TestStepChannels, params test.TestStepParameters, ev testevent.Emitter, resumeState json.RawMessage) (json.RawMessage, error) {
+func (e Step) Run(ctx xcontext.Context, ch test.TestStepChannels, bundle test.TestStepBundle, ev testevent.Emitter, resumeState json.RawMessage) (json.RawMessage, error) {
 	return teststeps.ForEachTarget(Name, ctx, ch,
 		func(ctx xcontext.Context, target *target.Target) error {
 			r := rand.Intn(2)
@@ -65,7 +65,7 @@ func (e Step) Run(ctx xcontext.Context, ch test.TestStepChannels, params test.Te
 					Payload:   nil,
 				}
 				_ = ev.Emit(ctx, evData)
-				ctx.Infof("Run: target %s succeeded: %s", target, params.GetOne("text"))
+				ctx.Infof("Run: target %s succeeded: %s", target, bundle.Parameters.GetOne("text"))
 				return nil
 			} else {
 				evData := testevent.Data{
@@ -74,7 +74,7 @@ func (e Step) Run(ctx xcontext.Context, ch test.TestStepChannels, params test.Te
 					Payload:   nil,
 				}
 				_ = ev.Emit(ctx, evData)
-				ctx.Infof("Run: target %s failed: %s", target, params.GetOne("text"))
+				ctx.Infof("Run: target %s failed: %s", target, bundle.Parameters.GetOne("text"))
 				return fmt.Errorf("target randomly failed")
 			}
 		},

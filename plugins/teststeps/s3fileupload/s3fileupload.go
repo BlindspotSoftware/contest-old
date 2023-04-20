@@ -83,10 +83,10 @@ func emitEvent(ctx xcontext.Context, name event.Name, payload interface{}, tgt *
 }
 
 // Run executes the awsFileUpload.
-func (ts *FileUpload) Run(ctx xcontext.Context, ch test.TestStepChannels, params test.TestStepParameters,
+func (ts *FileUpload) Run(ctx xcontext.Context, ch test.TestStepChannels, bundle test.TestStepBundle,
 	ev testevent.Emitter, resumeState json.RawMessage) (json.RawMessage, error) {
 	// Validate the parameter
-	if err := ts.validateAndPopulate(params); err != nil {
+	if err := ts.validateAndPopulate(bundle.Parameters); err != nil {
 		return nil, err
 	}
 	f := func(ctx xcontext.Context, target *target.Target) error {
