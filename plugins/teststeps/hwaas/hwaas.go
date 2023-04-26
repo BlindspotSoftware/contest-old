@@ -2,7 +2,6 @@ package hwaas
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/linuxboot/contest/pkg/event"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/target"
@@ -20,18 +20,6 @@ import (
 	"github.com/linuxboot/contest/pkg/xcontext"
 	"github.com/linuxboot/contest/plugins/teststeps"
 )
-
-// This data has to be filled with information to write it into our Context writer.
-type Data struct {
-	Index     int
-	Name      string
-	Label     string
-	Args      []string
-	Logs      []byte
-	Error     error
-	StartTime time.Time
-	EndTime   time.Time
-}
 
 // http response structs
 // this struct is the response for GET /flash
@@ -42,6 +30,14 @@ type getFlash struct {
 
 type postFlash struct {
 	Action string `json:"action"` // possible values: "read" or "write"
+}
+
+type postReset struct {
+	State string `json:"state"` // possible values: "on" or "off"
+}
+
+type postPower struct {
+	Duration string `json:"state"` // possible values: 0s-20s
 }
 
 // this struct is the response for GET /flash/file
@@ -65,6 +61,7 @@ type HWaaS struct {
 	hostname  *test.Param
 	contextID *test.Param
 	machineID *test.Param
+	deviceID  *test.Param
 	command   *test.Param  // Command that shall be run on the dut.
 	args      []test.Param // Arguments that the command need.
 }
@@ -77,77 +74,87 @@ func (hws HWaaS) Name() string {
 // Run executes the cmd step.
 func (hws *HWaaS) Run(ctx xcontext.Context, ch test.TestStepChannels, params test.TestStepParameters, ev testevent.Emitter, resumeState json.RawMessage) (json.RawMessage, error) {
 	log := ctx.Logger()
+
+	returnFunc := func(err error) {
+		if ctx.Writer() != nil {
+			writer := ctx.Writer()
+			_, err := writer.Write([]byte(err.Error()))
+			if err != nil {
+				log.Warnf("writing to ctx.Writer failed: %w", err)
+			}
+		}
+
+		return
+	}
+
 	// Validate the parameter
 	if err := hws.validateAndPopulate(params); err != nil {
+		returnFunc(fmt.Errorf("failed to validate parameter: %v", err))
+
 		return nil, err
 	}
 
-	output := Data{
-		Name:      "name",
-		Label:     "label",
-		StartTime: time.Now(),
-	}
-
 	f := func(ctx xcontext.Context, target *target.Target) error {
-		returnFunc := func(err error) {
-			output.Error = err
-
-			data, err := json.Marshal(output)
-			if err != nil {
-				log.Warnf("marshaling output data failed: %w", err)
-			}
-
-			if ctx.Writer() != nil {
-				w := ctx.Writer()
-				_, err := w.Write(data)
-				if err != nil {
-					log.Warnf("writing to ctx.Writer failed: %w", err)
-				}
-			}
-
-			return
-		}
 
 		// expand all variables
 		hostname, err := hws.hostname.Expand(target)
 		if err != nil {
 			returnFunc(fmt.Errorf("failed to expand variable 'hostname': %v", err))
 
-			return output.Error
+			return err
 		}
 		if hostname == "" {
 			returnFunc(fmt.Errorf("variable 'hostname' must not be empty: %v", err))
 
-			return output.Error
+			return err
 		}
 
 		contextID, err := hws.contextID.Expand(target)
 		if err != nil {
 			returnFunc(fmt.Errorf("failed to expand variable 'contextID': %v", err))
 
-			return output.Error
+			return err
 		}
 		if contextID == "" {
-			return fmt.Errorf("variable 'contextID' must not be empty: %v", err)
+			returnFunc(fmt.Errorf("variable 'contextID' must not be empty"))
+
+			return fmt.Errorf("variable 'contextID' must not be empty")
+		}
+		if _, err = uuid.Parse(contextID); err != nil {
+			returnFunc(fmt.Errorf("variable 'contextID' must be an uuid"))
+
+			return fmt.Errorf("variable 'contextID' must be an uuid")
 		}
 
 		machineID, err := hws.machineID.Expand(target)
 		if err != nil {
 			returnFunc(fmt.Errorf("failed to expand variable 'machineID': %v", err))
 
-			return output.Error
+			return err
 		}
 		if machineID == "" {
 			returnFunc(fmt.Errorf("variable 'machineID' must not be empty: %v", err))
 
-			return output.Error
+			return err
+		}
+
+		deviceID, err := hws.deviceID.Expand(target)
+		if err != nil {
+			returnFunc(fmt.Errorf("failed to expand variable 'deviceID': %v", err))
+
+			return err
+		}
+		if deviceID == "" {
+			returnFunc(fmt.Errorf("variable 'deviceID' must not be empty: %v", err))
+
+			return err
 		}
 
 		command, err := hws.command.Expand(target)
 		if err != nil {
 			returnFunc(fmt.Errorf("failed to expand variable 'command': %v", err))
 
-			return output.Error
+			return err
 		}
 
 		var args []string
@@ -156,130 +163,255 @@ func (hws *HWaaS) Run(ctx xcontext.Context, ch test.TestStepChannels, params tes
 			if err != nil {
 				returnFunc(fmt.Errorf("failed to expand argument '%s': %v", arg, err))
 
-				return output.Error
+				return err
 			}
 			args = append(args, expArg)
 		}
-
-		output.Args = args
 
 		switch command {
 		case "power":
 			if len(args) >= 1 {
 				switch args[0] {
 				case "on":
-					endpoint := fmt.Sprintf("%s/contexts/%s/machines/%s/power", hostname, contextID, machineID)
+					// First pull reset switch on off
+					endpoint := fmt.Sprintf("%s/contexts/%s/machines/%s/auxiliaries/%s/api/reset",
+						hostname, contextID, machineID, deviceID)
 
-					resp, err := HTTPRequest(ctx, http.MethodPut, endpoint, bytes.NewBuffer(nil))
+					postReset := postReset{
+						State: "off",
+					}
+
+					resetBody, err := json.Marshal(postReset)
+					if err != nil {
+						return fmt.Errorf("failed to marshal body: %w", err)
+					}
+
+					resp, err := HTTPRequest(ctx, http.MethodPost, endpoint, bytes.NewBuffer(resetBody))
 					if err != nil {
 						returnFunc(fmt.Errorf("failed to do http request"))
 
-						return output.Error
+						return err
 					}
 
 					if resp.StatusCode == 200 {
-						log.Infof("dut powered on.")
+						log.Infof("reset switch is off")
+					} else {
+						returnFunc(fmt.Errorf("device could not be set on reset"))
 
-						return nil
+						return fmt.Errorf("device could not be set on reset")
 					}
 
-					returnFunc(fmt.Errorf("device could not be turned on"))
+					// Than turn on the pdu again
+					endpoint = fmt.Sprintf("%s/contexts/%s/machines/%s/power", hostname, contextID, machineID)
 
-					return output.Error
+					resp, err = HTTPRequest(ctx, http.MethodPut, endpoint, bytes.NewBuffer(nil))
+					if err != nil {
+						returnFunc(fmt.Errorf("failed to do http request"))
+
+						return err
+					}
+
+					if resp.StatusCode == 200 {
+						log.Infof("pdu powered on")
+					} else {
+						returnFunc(fmt.Errorf("device could not be turned on"))
+
+						return fmt.Errorf("pdu could not be powered off")
+					}
+
+					// Than press the power button
+					endpoint = fmt.Sprintf("%s/contexts/%s/machines/%s/auxiliaries/%s/api/power",
+						hostname, contextID, machineID, deviceID)
+
+					postPower := postPower{
+						Duration: "3s",
+					}
+
+					powerBody, err := json.Marshal(postPower)
+					if err != nil {
+						return fmt.Errorf("failed to marshal body: %w", err)
+					}
+
+					resp, err = HTTPRequest(ctx, http.MethodPut, endpoint, bytes.NewBuffer(powerBody))
+					if err != nil {
+						returnFunc(fmt.Errorf("failed to do http request"))
+
+						return err
+					}
+
+					if resp.StatusCode == 200 {
+						log.Infof("dut is started")
+						time.Sleep(3 * time.Second)
+					} else {
+						returnFunc(fmt.Errorf("device could not be turned on"))
+
+						return err
+					}
+
+					// Check the led if the device is on
+					endpoint = fmt.Sprintf("%s/contexts/%s/machines/%s/auxiliaries/%s/api/led",
+						hostname, contextID, machineID, deviceID)
+
+					resp, err = HTTPRequest(ctx, http.MethodGet, endpoint, bytes.NewBuffer(powerBody))
+					if err != nil {
+						returnFunc(fmt.Errorf("failed to do http request"))
+
+						return err
+					}
+
+					if resp.StatusCode == 200 {
+						log.Infof("dut is started")
+					} else {
+						returnFunc(fmt.Errorf("device could not be turned on"))
+
+						return err
+					}
+
+					data := getState{}
+
+					json.NewDecoder(resp.Body).Decode(&data)
+
+					if data.State != "on" {
+						return fmt.Errorf("dut is not on")
+					}
+
+					return nil
 
 				case "off":
-					endpoint := fmt.Sprintf("%s/contexts/%s/machines/%s/power", hostname, contextID, machineID)
+					// First press power button for 3s
+					endpoint := fmt.Sprintf("%s/contexts/%s/machines/%s/auxiliaries/%s/api/power",
+						hostname, contextID, machineID, deviceID)
 
-					resp, err := HTTPRequest(ctx, http.MethodDelete, endpoint, bytes.NewBuffer(nil))
+					postPower := postPower{
+						Duration: "3s",
+					}
+
+					powerBody, err := json.Marshal(postPower)
+					if err != nil {
+						return fmt.Errorf("failed to marshal body: %w", err)
+					}
+
+					resp, err := HTTPRequest(ctx, http.MethodPut, endpoint, bytes.NewBuffer(powerBody))
 					if err != nil {
 						returnFunc(fmt.Errorf("failed to do http request"))
 
-						return output.Error
+						return err
 					}
 
 					if resp.StatusCode == 200 {
-						log.Infof("dut powered off.")
+						log.Infof("dut is shutting down")
 
-						return nil
+						time.Sleep(15 * time.Second)
+					} else {
+						returnFunc(fmt.Errorf("device could not be turned off"))
 					}
 
-					returnFunc(fmt.Errorf("device could not be turned off"))
+					// Than turn off the pdu, even if the graceful shutdown was not working
+					endpoint = fmt.Sprintf("%s/contexts/%s/machines/%s/power", hostname, contextID, machineID)
 
-					return output.Error
+					resp, err = HTTPRequest(ctx, http.MethodDelete, endpoint, bytes.NewBuffer(nil))
+					if err != nil {
+						returnFunc(fmt.Errorf("failed to do http request"))
+
+						return err
+					}
+
+					if resp.StatusCode == 200 {
+						log.Infof("pdu powered off.")
+					} else {
+						returnFunc(fmt.Errorf("device could not be turned on"))
+
+						return fmt.Errorf("pdu could not be powered off")
+					}
+
+					// Than pull the reset switch on on
+					endpoint = fmt.Sprintf("%s/contexts/%s/machines/%s/auxiliaries/%s/api/reset",
+						hostname, contextID, machineID, deviceID)
+
+					postReset := postReset{
+						State: "on",
+					}
+
+					resetBody, err := json.Marshal(postReset)
+					if err != nil {
+						return fmt.Errorf("failed to marshal body: %w", err)
+					}
+
+					resp, err = HTTPRequest(ctx, http.MethodPost, endpoint, bytes.NewBuffer(resetBody))
+					if err != nil {
+						returnFunc(fmt.Errorf("failed to do http request"))
+
+						return err
+					}
+
+					if resp.StatusCode == 200 {
+						log.Infof("reset is in state on")
+					} else {
+						returnFunc(fmt.Errorf("device could not be set on reset"))
+
+						return fmt.Errorf("device could not be set on reset")
+					}
+
+					log.Infof("successfully powered down dut")
+
+					return nil
 
 				default:
 					returnFunc(fmt.Errorf("failed to execute the power command. The argument %q is not valid. Possible values are 'on' and 'off'.", args))
 
-					return output.Error
+					return err
 				}
 
 			} else {
 				returnFunc(fmt.Errorf("failed to execute the power command. Args is empty. Possible values are 'on' and 'off'."))
 
-				return output.Error
+				return err
 			}
 
-		case "flash":
-			if len(args) >= 2 {
-				switch args[0] {
-				case "write":
-					if args[1] == "" {
-						returnFunc(fmt.Errorf("no file was set to read or write: %v\n", err))
+		// case "flash":
+		// 	if len(args) >= 2 {
+		// 		switch args[0] {
+		// 		case "write":
+		// 			if args[1] == "" {
+		// 				returnFunc(fmt.Errorf("no file was set to read or write: %v\n", err))
 
-						return output.Error
-					}
+		// 				return err
+		// 			}
 
-					endpoint := fmt.Sprintf("%s/contexts/%s/machines/%s/flash", hostname, contextID, machineID)
+		// 			endpoint := fmt.Sprintf("%s/contexts/%s/machines/%s/flash", hostname, contextID, machineID)
 
-					if isBusy := isTargetBusy(ctx, endpoint); isBusy {
-						returnFunc(fmt.Errorf("target is currently busy"))
+		// 			if isBusy := isTargetBusy(ctx, endpoint); isBusy {
+		// 				returnFunc(fmt.Errorf("target is currently busy"))
 
-						return output.Error
-					}
+		// 				return err
+		// 			}
 
-					err = flashTarget(ctx, endpoint, args[1])
-					if err != nil {
-						returnFunc(fmt.Errorf("flashing %s failed: %v\n", args[1], err))
+		// 			err = flashTarget(ctx, endpoint, args[1])
+		// 			if err != nil {
+		// 				returnFunc(fmt.Errorf("flashing %s failed: %v\n", args[1], err))
 
-						return output.Error
-					}
+		// 				return err
+		// 			}
 
-					log.Infof("successfully flashed binary")
+		// 			log.Infof("successfully flashed binary")
 
-				default:
-					returnFunc(fmt.Errorf("Failed to execute the flash command. The argument %q is not valid. Possible values are 'read /path/to/binary' and 'write /path/to/binary'.", args))
+		// 		default:
+		// 			returnFunc(fmt.Errorf("Failed to execute the flash command. The argument %q is not valid. Possible values are 'read /path/to/binary' and 'write /path/to/binary'.", args))
 
-					return output.Error
-				}
+		// 			return err
+		// 		}
 
-			} else {
-				returnFunc(fmt.Errorf("Failed to execute the power command. Args is not valid. Possible values are 'read /path/to/binary' and 'write /path/to/binary'."))
+		// 	} else {
+		// 		returnFunc(fmt.Errorf("Failed to execute the power command. Args is not valid. Possible values are 'read /path/to/binary' and 'write /path/to/binary'."))
 
-				return output.Error
-			}
+		// 		return err
+		// 	}
 
 		default:
 			returnFunc(fmt.Errorf("Command %q is not valid. Possible values are 'power' and 'flash'.", args))
 
-			return output.Error
+			return err
 		}
-
-		output.EndTime = time.Now()
-
-		data, err := json.Marshal(output)
-		if err != nil {
-			log.Warnf("marshaling output data failed: %w", err)
-		}
-
-		if ctx.Writer() != nil {
-			w := ctx.Writer()
-			_, err := w.Write(data)
-			if err != nil {
-				log.Warnf("Writing to ctx.Writer failed: %w", err)
-			}
-		}
-
-		return nil
 	}
 
 	return teststeps.ForEachTarget(Name, ctx, ch, f)
@@ -302,6 +434,12 @@ func (hws *HWaaS) validateAndPopulate(params test.TestStepParameters) error {
 	hws.machineID = params.GetOne("machineID")
 	if hws.machineID.IsEmpty() {
 		return errors.New("invalid or missing 'machineID' parameter, must be exactly one string")
+	}
+
+	// validate the hwaas device ID
+	hws.deviceID = params.GetOne("deviceID")
+	if hws.deviceID.IsEmpty() {
+		return errors.New("invalid or missing 'deviceID' parameter, must be exactly one string")
 	}
 
 	// validate the hwaas command
@@ -331,7 +469,9 @@ func Load() (string, test.TestStepFactory, []event.Name) {
 	return Name, New, nil
 }
 
-func HTTPRequest(ctx context.Context, method string, endpoint string, body io.Reader) (*http.Response, error) {
+func HTTPRequest(ctx xcontext.Context, method string, endpoint string, body io.Reader) (*http.Response, error) {
+	log := ctx.Logger()
+
 	client := &http.Client{}
 
 	req, err := http.NewRequestWithContext(ctx, method, endpoint, body)
@@ -345,6 +485,21 @@ func HTTPRequest(ctx context.Context, method string, endpoint string, body io.Re
 	}
 	defer resp.Body.Close()
 
+	jsonBody, err := json.Marshal(resp.Body)
+	if err != nil {
+		log.Warnf("failed to marshal resp.Body")
+
+		return nil, err
+	}
+
+	if ctx.Writer() != nil {
+		writer := ctx.Writer()
+		_, err := writer.Write(jsonBody)
+		if err != nil {
+			log.Warnf("writing to ctx.Writer failed: %w", err)
+		}
+	}
+
 	return resp, nil
 }
 
@@ -354,6 +509,21 @@ func isTargetBusy(ctx xcontext.Context, endpoint string) bool {
 	resp, err := HTTPRequest(ctx, http.MethodGet, endpoint, bytes.NewBuffer(nil))
 	if err != nil {
 		log.Warnf("failed to do http request")
+	}
+
+	jsonBody, err := json.Marshal(resp.Body)
+	if err != nil {
+		log.Warnf("failed to marshal resp.Body")
+
+		return false
+	}
+
+	if ctx.Writer() != nil {
+		writer := ctx.Writer()
+		_, err := writer.Write(jsonBody)
+		if err != nil {
+			log.Warnf("writing to ctx.Writer failed: %w", err)
+		}
 	}
 
 	data := getFlash{}
@@ -367,7 +537,9 @@ func isTargetBusy(ctx xcontext.Context, endpoint string) bool {
 	return false
 }
 
-func flashTarget(ctx context.Context, endpoint string, filePath string) error {
+func flashTarget(ctx xcontext.Context, endpoint string, filePath string) error {
+	log := ctx.Logger()
+
 	file, _ := os.Open(filePath)
 	defer file.Close()
 
@@ -396,6 +568,21 @@ func flashTarget(ctx context.Context, endpoint string, filePath string) error {
 		return fmt.Errorf("failed to upload binary")
 	}
 
+	jsonBody, err := json.Marshal(resp.Body)
+	if err != nil {
+		log.Warnf("failed to marshal resp.Body")
+
+		return err
+	}
+
+	if ctx.Writer() != nil {
+		writer := ctx.Writer()
+		_, err := writer.Write(jsonBody)
+		if err != nil {
+			log.Warnf("writing to ctx.Writer failed: %w", err)
+		}
+	}
+
 	postFlash := postFlash{
 		Action: "write",
 	}
@@ -412,6 +599,21 @@ func flashTarget(ctx context.Context, endpoint string, filePath string) error {
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("failed to flash binary on target")
+	}
+
+	jsonBody, err = json.Marshal(resp.Body)
+	if err != nil {
+		log.Warnf("failed to marshal resp.Body")
+
+		return err
+	}
+
+	if ctx.Writer() != nil {
+		writer := ctx.Writer()
+		_, err := writer.Write(jsonBody)
+		if err != nil {
+			log.Warnf("writing to ctx.Writer failed: %w", err)
+		}
 	}
 
 	return nil
