@@ -71,7 +71,7 @@ func (p *Parameter) flashWrite(ctx xcontext.Context, arg string) error {
 	if targetInfo.State == "busy" {
 		return fmt.Errorf("target is currently busy")
 	}
-	if targetInfo.Error != "" {
+	if targetInfo.State == "error" {
 		log.Infof("error from last flash: %s", targetInfo.Error)
 	}
 
@@ -93,8 +93,8 @@ func (p *Parameter) flashWrite(ctx xcontext.Context, arg string) error {
 		if targetInfo.State == "busy" {
 			log.Infof("target is currently busy")
 		}
-		if targetInfo.Error != "" {
-			log.Infof("error from last flash: %s", targetInfo.Error)
+		if targetInfo.State == "error" {
+			log.Infof("error while flashing: %s", targetInfo.Error)
 		}
 		if time.Now().Sub(timestamp) >= defaultTimeoutParameter {
 			return fmt.Errorf("flashing failed: timeout")
