@@ -70,6 +70,8 @@ func (p *Parameter) powerOn(ctx xcontext.Context) error {
 		return fmt.Errorf("reset switch could not be turned off")
 	}
 
+	time.Sleep(time.Second)
+
 	// Than turn on the pdu again
 	statusCode, err = p.pressPDU(ctx, http.MethodPut)
 	if err != nil {
@@ -82,6 +84,8 @@ func (p *Parameter) powerOn(ctx xcontext.Context) error {
 		return fmt.Errorf("pdu could not be powered on")
 	}
 
+	time.Sleep(time.Second)
+
 	// Than press the power button
 	statusCode, err = p.postPower(ctx, "3s")
 	if err != nil {
@@ -90,7 +94,7 @@ func (p *Parameter) powerOn(ctx xcontext.Context) error {
 	if statusCode == 200 {
 		log.Infof("dut is starting")
 
-		time.Sleep(3 * time.Second)
+		time.Sleep(5 * time.Second)
 	} else {
 		return fmt.Errorf("device could not be turned on")
 	}
@@ -120,8 +124,8 @@ func (p *Parameter) powerOff(ctx xcontext.Context) error {
 	}
 
 	if state == "on" {
-		// If device is on, press power button for 3s
-		statusCode, err := p.postPower(ctx, "3s")
+		// If device is on, press power button for 12s
+		statusCode, err := p.postPower(ctx, "12s")
 		if err != nil {
 			return err
 		}
@@ -133,6 +137,8 @@ func (p *Parameter) powerOff(ctx xcontext.Context) error {
 			log.Infof("dut is was not powered down gracefully")
 		}
 	}
+
+	time.Sleep(time.Second)
 
 	// Than turn off the pdu, even if the graceful shutdown was not working
 	statusCode, err := p.pressPDU(ctx, http.MethodDelete)
@@ -146,6 +152,8 @@ func (p *Parameter) powerOff(ctx xcontext.Context) error {
 
 		return fmt.Errorf("pdu could not be powered off")
 	}
+
+	time.Sleep(time.Second)
 
 	// Than pull the reset switch on on
 	statusCode, err = p.postReset(ctx, "on")

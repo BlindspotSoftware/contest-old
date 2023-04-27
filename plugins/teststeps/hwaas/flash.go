@@ -34,6 +34,7 @@ func (p *Parameter) flashWrite(ctx xcontext.Context, arg string) error {
 		if statusCode == 200 {
 			log.Infof("pdu powered off")
 		} else {
+
 			log.Infof("pdu could not be powered off")
 
 			return fmt.Errorf("pdu could not be powered off")
