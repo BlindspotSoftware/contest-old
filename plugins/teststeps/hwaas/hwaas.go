@@ -222,13 +222,11 @@ func (hws *HWaaS) Run(ctx xcontext.Context, ch test.TestStepChannels, params tes
 
 					return err
 				}
-
 			} else {
 				returnFunc(fmt.Errorf("failed to execute the power command. Args is empty. Possible values are 'on' and 'off'."))
 
 				return err
 			}
-
 		case "flash":
 			if len(args) >= 2 {
 				switch args[0] {
@@ -245,13 +243,11 @@ func (hws *HWaaS) Run(ctx xcontext.Context, ch test.TestStepChannels, params tes
 
 					return err
 				}
-
 			} else {
 				returnFunc(fmt.Errorf("Failed to execute the power command. Args is not valid. Possible values are 'read /path/to/binary' and 'write /path/to/binary'."))
 
 				return err
 			}
-
 		default:
 			returnFunc(fmt.Errorf("Command %q is not valid. Possible values are 'power' and 'flash'.", args))
 
@@ -269,6 +265,7 @@ func (hws *HWaaS) validateAndPopulate(params test.TestStepParameters) error {
 		return errors.New("invalid or missing 'hostname' parameter, must be exactly one string")
 	}
 
+	// validate the hwaas port
 	hws.port = params.GetOne("port")
 	if hws.port.IsEmpty() {
 		return errors.New("invalid or missing 'port' parameter, must be exactly one string")

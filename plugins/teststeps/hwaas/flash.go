@@ -13,84 +13,130 @@ import (
 	"github.com/linuxboot/contest/pkg/xcontext"
 )
 
+// flashWrite executes the flash write command.
 func (p *Parameter) flashWrite(ctx xcontext.Context, arg string) error {
 	log := ctx.Logger()
 
-	returnFunc := func(err error) {
-		if ctx.Writer() != nil {
-			writer := ctx.Writer()
-			_, err := writer.Write([]byte(err.Error()))
-			if err != nil {
-				log.Warnf("writing to ctx.Writer failed: %w", err)
-			}
-		}
-
-		return
+	if arg == "" {
+		return fmt.Errorf("no file was set to read or write")
 	}
 
-	if arg == "" {
-		returnFunc(fmt.Errorf("no file was set to read or write"))
+	state, err := p.getState(ctx, "reset")
+	if err != nil {
+		return err
+	}
+	if state == "off" {
+		// Than turn off the pdu, even if the graceful shutdown was not working
+		statusCode, err := p.pressPDU(ctx, http.MethodDelete)
+		if err != nil {
+			return err
+		}
+		if statusCode == 200 {
+			log.Infof("pdu powered off")
+		} else {
+			log.Infof("pdu could not be powered off")
 
-		return fmt.Errorf("no file was set to read or write")
+			return fmt.Errorf("pdu could not be powered off")
+		}
+
+		// Than pull the reset switch on on
+		statusCode, err = p.postReset(ctx, "on")
+		if err != nil {
+			return err
+		}
+		if statusCode == 200 {
+			state, err = p.getState(ctx, "reset")
+			if err != nil {
+				return err
+			}
+
+			if state == "on" {
+				log.Infof("reset is in state on")
+			} else {
+				return fmt.Errorf("reset switch could not be turned on")
+			}
+		} else {
+			return fmt.Errorf("reset switch could not be turned on")
+		}
 	}
 
 	endpoint := fmt.Sprintf("%s:%s/contexts/%s/machines/%s/flash", p.hostname, p.port, p.contextID, p.machineID)
 
-	if isBusy := isTargetBusy(ctx, endpoint); isBusy {
-		returnFunc(fmt.Errorf("target is currently busy"))
-
+	targetInfo, err := getTargetState(ctx, endpoint)
+	if err != nil {
+		return err
+	}
+	if targetInfo.State == "busy" {
 		return fmt.Errorf("target is currently busy")
 	}
 
-	err := flashTarget(ctx, endpoint, arg)
+	err = flashTarget(ctx, endpoint, arg)
 	if err != nil {
-		returnFunc(fmt.Errorf("flashing %s failed: %v\n", arg, err))
-
-		return err
+		return fmt.Errorf("flashing %s failed: %v\n", arg, err)
 	}
 
 	log.Infof("successfully flashed binary")
 
+	// Make device bootable again reset switch on off
+	// Pull reset to off
+	statusCode, err := p.postReset(ctx, "off")
+	if err != nil {
+		return err
+	}
+	if statusCode == 200 {
+		state, err := p.getState(ctx, "reset")
+		if err != nil {
+			return err
+		}
+
+		if state == "off" {
+			log.Infof("reset is in state off")
+		} else {
+			return fmt.Errorf("reset switch could not be turned off")
+		}
+	} else {
+		return fmt.Errorf("reset switch could not be turned off")
+	}
+
+	// Than turn on the pdu again
+	statusCode, err = p.pressPDU(ctx, http.MethodPut)
+	if err != nil {
+		return err
+	}
+
+	if statusCode == 200 {
+		log.Infof("pdu powered on")
+	} else {
+		return fmt.Errorf("pdu could not be powered on")
+	}
+
 	return nil
 }
 
-func isTargetBusy(ctx xcontext.Context, endpoint string) bool {
-	log := ctx.Logger()
-
+// getTargetState returns the flash state of the target.
+// If an error occured, the field error is filled.
+func getTargetState(ctx xcontext.Context, endpoint string) (getFlash, error) {
 	resp, err := HTTPRequest(ctx, http.MethodGet, endpoint, bytes.NewBuffer(nil))
 	if err != nil {
-		log.Warnf("failed to do http request")
+		return getFlash{}, fmt.Errorf("failed to do http request: %v", err)
 	}
 
-	jsonBody, err := json.Marshal(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Warnf("failed to marshal resp.Body")
-
-		return false
-	}
-
-	if ctx.Writer() != nil {
-		writer := ctx.Writer()
-		_, err := writer.Write(jsonBody)
-		if err != nil {
-			log.Warnf("writing to ctx.Writer failed: %w", err)
-		}
+		return getFlash{}, fmt.Errorf("could not extract response body: %v", err)
 	}
 
 	data := getFlash{}
 
-	json.NewDecoder(resp.Body).Decode(&data)
-
-	if data.State == "busy" {
-		return true
+	if err := json.Unmarshal(body, &data); err != nil {
+		return getFlash{}, fmt.Errorf("could not unmarshal response body: %v", err)
 	}
 
-	return false
+	return data, nil
 }
 
+// flashTarget flashes the target.
 func flashTarget(ctx xcontext.Context, endpoint string, filePath string) error {
-	log := ctx.Logger()
-
 	file, _ := os.Open(filePath)
 	defer file.Close()
 
@@ -119,21 +165,6 @@ func flashTarget(ctx xcontext.Context, endpoint string, filePath string) error {
 		return fmt.Errorf("failed to upload binary")
 	}
 
-	jsonBody, err := json.Marshal(resp.Body)
-	if err != nil {
-		log.Warnf("failed to marshal resp.Body")
-
-		return err
-	}
-
-	if ctx.Writer() != nil {
-		writer := ctx.Writer()
-		_, err := writer.Write(jsonBody)
-		if err != nil {
-			log.Warnf("writing to ctx.Writer failed: %w", err)
-		}
-	}
-
 	postFlash := postFlash{
 		Action: "write",
 	}
@@ -150,21 +181,6 @@ func flashTarget(ctx xcontext.Context, endpoint string, filePath string) error {
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("failed to flash binary on target")
-	}
-
-	jsonBody, err = json.Marshal(resp.Body)
-	if err != nil {
-		log.Warnf("failed to marshal resp.Body")
-
-		return err
-	}
-
-	if ctx.Writer() != nil {
-		writer := ctx.Writer()
-		_, err := writer.Write(jsonBody)
-		if err != nil {
-			log.Warnf("writing to ctx.Writer failed: %w", err)
-		}
 	}
 
 	return nil

@@ -51,14 +51,23 @@ func (p *Parameter) powerOn(ctx xcontext.Context) error {
 	log := ctx.Logger()
 
 	// First pull reset switch on off
-	statusCode, err := p.pressReset(ctx, "off")
+	statusCode, err := p.postReset(ctx, "off")
 	if err != nil {
 		return err
 	}
 	if statusCode == 200 {
-		log.Infof("reset switch is off")
+		state, err := p.getState(ctx, "reset")
+		if err != nil {
+			return err
+		}
+
+		if state == "off" {
+			log.Infof("reset is in state off")
+		} else {
+			return fmt.Errorf("reset switch could not be turned off")
+		}
 	} else {
-		return fmt.Errorf("device could not be set on reset")
+		return fmt.Errorf("reset switch could not be turned off")
 	}
 
 	// Than turn on the pdu again
@@ -74,7 +83,7 @@ func (p *Parameter) powerOn(ctx xcontext.Context) error {
 	}
 
 	// Than press the power button
-	statusCode, err = p.pressPower(ctx, "3s")
+	statusCode, err = p.postPower(ctx, "3s")
 	if err != nil {
 		return err
 	}
@@ -112,7 +121,7 @@ func (p *Parameter) powerOff(ctx xcontext.Context) error {
 
 	if state == "on" {
 		// If device is on, press power button for 3s
-		statusCode, err := p.pressPower(ctx, "3s")
+		statusCode, err := p.postPower(ctx, "3s")
 		if err != nil {
 			return err
 		}
@@ -139,14 +148,23 @@ func (p *Parameter) powerOff(ctx xcontext.Context) error {
 	}
 
 	// Than pull the reset switch on on
-	statusCode, err = p.pressReset(ctx, "on")
+	statusCode, err = p.postReset(ctx, "on")
 	if err != nil {
 		return err
 	}
 	if statusCode == 200 {
-		log.Infof("reset is in state on")
+		state, err = p.getState(ctx, "reset")
+		if err != nil {
+			return err
+		}
+
+		if state == "on" {
+			log.Infof("reset is in state on")
+		} else {
+			return fmt.Errorf("reset switch could not be turned on")
+		}
 	} else {
-		return fmt.Errorf("device could not be set on reset")
+		return fmt.Errorf("reset switch could not be turned on")
 	}
 
 	log.Infof("successfully powered down dut")
@@ -154,9 +172,9 @@ func (p *Parameter) powerOff(ctx xcontext.Context) error {
 	return nil
 }
 
-// pressPower pushes the power button for the time of 'duration'.
+// postPower pushes the power button for the time of 'duration'.
 // duration can be set from 0s to 20s.
-func (p *Parameter) pressPower(ctx xcontext.Context, duration string) (int, error) {
+func (p *Parameter) postPower(ctx xcontext.Context, duration string) (int, error) {
 	endpoint := fmt.Sprintf("%s:%s/contexts/%s/machines/%s/auxiliaries/%s/api/power",
 		p.hostname, p.port, p.contextID, p.machineID, p.deviceID)
 
@@ -179,8 +197,8 @@ func (p *Parameter) pressPower(ctx xcontext.Context, duration string) (int, erro
 }
 
 // pressPDU toggles the PDU as you define the method input parameter.
-// http.MethodDelete does power off the pdu
-// http.MethodPut does power on the pdu
+// http.MethodDelete does power off the pdu.
+// http.MethodPut does power on the pdu.
 func (p *Parameter) pressPDU(ctx xcontext.Context, method string) (int, error) {
 	if method != http.MethodDelete && method != http.MethodPut {
 		return 0, fmt.Errorf("invalid method")
@@ -197,9 +215,9 @@ func (p *Parameter) pressPDU(ctx xcontext.Context, method string) (int, error) {
 	return resp.StatusCode, nil
 }
 
-// pressReset toggles the Reset button regarding the state that is passed in.
-// A valid state is either 'on' or 'off'
-func (p *Parameter) pressReset(ctx xcontext.Context, state string) (int, error) {
+// postReset toggles the Reset button regarding the state that is passed in.
+// A valid state is either 'on' or 'off'.
+func (p *Parameter) postReset(ctx xcontext.Context, state string) (int, error) {
 	if state != "on" && state != "off" {
 		return 0, fmt.Errorf("invalid state")
 	}
@@ -237,13 +255,13 @@ func (p *Parameter) getState(ctx xcontext.Context, command string) (string, erro
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("vcc pin status could not be retrieved")
+	}
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("could not extract response body: %v", err)
-	}
-
-	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("vcc pin status could not be retrieved")
 	}
 
 	data := getState{}
