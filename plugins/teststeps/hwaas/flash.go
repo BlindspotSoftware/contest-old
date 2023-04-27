@@ -1,117 +1,171 @@
 package hwaas
 
-// func isTargetBusy(ctx xcontext.Context, endpoint string) bool {
-// 	log := ctx.Logger()
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"mime/multipart"
+	"net/http"
+	"os"
+	"path/filepath"
 
-// 	resp, err := HTTPRequest(ctx, http.MethodGet, endpoint, bytes.NewBuffer(nil))
-// 	if err != nil {
-// 		log.Warnf("failed to do http request")
-// 	}
+	"github.com/linuxboot/contest/pkg/xcontext"
+)
 
-// 	jsonBody, err := json.Marshal(resp.Body)
-// 	if err != nil {
-// 		log.Warnf("failed to marshal resp.Body")
+func (p *Parameter) flashWrite(ctx xcontext.Context, arg string) error {
+	log := ctx.Logger()
 
-// 		return false
-// 	}
+	returnFunc := func(err error) {
+		if ctx.Writer() != nil {
+			writer := ctx.Writer()
+			_, err := writer.Write([]byte(err.Error()))
+			if err != nil {
+				log.Warnf("writing to ctx.Writer failed: %w", err)
+			}
+		}
 
-// 	if ctx.Writer() != nil {
-// 		writer := ctx.Writer()
-// 		_, err := writer.Write(jsonBody)
-// 		if err != nil {
-// 			log.Warnf("writing to ctx.Writer failed: %w", err)
-// 		}
-// 	}
+		return
+	}
 
-// 	data := getFlash{}
+	if arg == "" {
+		returnFunc(fmt.Errorf("no file was set to read or write"))
 
-// 	json.NewDecoder(resp.Body).Decode(&data)
+		return fmt.Errorf("no file was set to read or write")
+	}
 
-// 	if data.State == "busy" {
-// 		return true
-// 	}
+	endpoint := fmt.Sprintf("%s:%s/contexts/%s/machines/%s/flash", p.hostname, p.port, p.contextID, p.machineID)
 
-// 	return false
-// }
+	if isBusy := isTargetBusy(ctx, endpoint); isBusy {
+		returnFunc(fmt.Errorf("target is currently busy"))
 
-// func flashTarget(ctx xcontext.Context, endpoint string, filePath string) error {
-// 	log := ctx.Logger()
+		return fmt.Errorf("target is currently busy")
+	}
 
-// 	file, _ := os.Open(filePath)
-// 	defer file.Close()
+	err := flashTarget(ctx, endpoint, arg)
+	if err != nil {
+		returnFunc(fmt.Errorf("flashing %s failed: %v\n", arg, err))
 
-// 	body := &bytes.Buffer{}
-// 	writer := multipart.NewWriter(body)
-// 	form, _ := writer.CreateFormFile("file", filepath.Base(filePath))
-// 	io.Copy(form, file)
-// 	writer.Close()
+		return err
+	}
 
-// 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, fmt.Sprintf("%s:%s%s", endpoint, "/file"), body)
-// 	if err != nil {
-// 		return err
-// 	}
+	log.Infof("successfully flashed binary")
 
-// 	req.Header.Add("Content-Type", writer.FormDataContentType())
+	return nil
+}
 
-// 	client := &http.Client{}
+func isTargetBusy(ctx xcontext.Context, endpoint string) bool {
+	log := ctx.Logger()
 
-// 	resp, err := client.Do(req)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer resp.Body.Close()
+	resp, err := HTTPRequest(ctx, http.MethodGet, endpoint, bytes.NewBuffer(nil))
+	if err != nil {
+		log.Warnf("failed to do http request")
+	}
 
-// 	if resp.StatusCode != 200 {
-// 		return fmt.Errorf("failed to upload binary")
-// 	}
+	jsonBody, err := json.Marshal(resp.Body)
+	if err != nil {
+		log.Warnf("failed to marshal resp.Body")
 
-// 	jsonBody, err := json.Marshal(resp.Body)
-// 	if err != nil {
-// 		log.Warnf("failed to marshal resp.Body")
+		return false
+	}
 
-// 		return err
-// 	}
+	if ctx.Writer() != nil {
+		writer := ctx.Writer()
+		_, err := writer.Write(jsonBody)
+		if err != nil {
+			log.Warnf("writing to ctx.Writer failed: %w", err)
+		}
+	}
 
-// 	if ctx.Writer() != nil {
-// 		writer := ctx.Writer()
-// 		_, err := writer.Write(jsonBody)
-// 		if err != nil {
-// 			log.Warnf("writing to ctx.Writer failed: %w", err)
-// 		}
-// 	}
+	data := getFlash{}
 
-// 	postFlash := postFlash{
-// 		Action: "write",
-// 	}
+	json.NewDecoder(resp.Body).Decode(&data)
 
-// 	flashBody, err := json.Marshal(postFlash)
-// 	if err != nil {
-// 		return fmt.Errorf("failed to marshal body: %w", err)
-// 	}
+	if data.State == "busy" {
+		return true
+	}
 
-// 	resp, err = HTTPRequest(ctx, http.MethodPost, endpoint, bytes.NewBuffer(flashBody))
-// 	if err != nil {
-// 		return fmt.Errorf("failed to do http request")
-// 	}
+	return false
+}
 
-// 	if resp.StatusCode != 200 {
-// 		return fmt.Errorf("failed to flash binary on target")
-// 	}
+func flashTarget(ctx xcontext.Context, endpoint string, filePath string) error {
+	log := ctx.Logger()
 
-// 	jsonBody, err = json.Marshal(resp.Body)
-// 	if err != nil {
-// 		log.Warnf("failed to marshal resp.Body")
+	file, _ := os.Open(filePath)
+	defer file.Close()
 
-// 		return err
-// 	}
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	form, _ := writer.CreateFormFile("file", filepath.Base(filePath))
+	io.Copy(form, file)
+	writer.Close()
 
-// 	if ctx.Writer() != nil {
-// 		writer := ctx.Writer()
-// 		_, err := writer.Write(jsonBody)
-// 		if err != nil {
-// 			log.Warnf("writing to ctx.Writer failed: %w", err)
-// 		}
-// 	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, fmt.Sprintf("%s%s", endpoint, "/file"), body)
+	if err != nil {
+		return err
+	}
 
-// 	return nil
-// }
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("failed to upload binary")
+	}
+
+	jsonBody, err := json.Marshal(resp.Body)
+	if err != nil {
+		log.Warnf("failed to marshal resp.Body")
+
+		return err
+	}
+
+	if ctx.Writer() != nil {
+		writer := ctx.Writer()
+		_, err := writer.Write(jsonBody)
+		if err != nil {
+			log.Warnf("writing to ctx.Writer failed: %w", err)
+		}
+	}
+
+	postFlash := postFlash{
+		Action: "write",
+	}
+
+	flashBody, err := json.Marshal(postFlash)
+	if err != nil {
+		return fmt.Errorf("failed to marshal body: %w", err)
+	}
+
+	resp, err = HTTPRequest(ctx, http.MethodPost, endpoint, bytes.NewBuffer(flashBody))
+	if err != nil {
+		return fmt.Errorf("failed to do http request")
+	}
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("failed to flash binary on target")
+	}
+
+	jsonBody, err = json.Marshal(resp.Body)
+	if err != nil {
+		log.Warnf("failed to marshal resp.Body")
+
+		return err
+	}
+
+	if ctx.Writer() != nil {
+		writer := ctx.Writer()
+		_, err := writer.Write(jsonBody)
+		if err != nil {
+			log.Warnf("writing to ctx.Writer failed: %w", err)
+		}
+	}
+
+	return nil
+}

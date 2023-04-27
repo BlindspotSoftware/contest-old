@@ -44,236 +44,209 @@ func HTTPRequest(ctx xcontext.Context, method string, endpoint string, body io.R
 	return resp, nil
 }
 
+// powerOn turns on the device. To power the device on we have to fulfill this requirements -> reset is off -> pdu is on.
 func (p *Parameter) powerOn(ctx xcontext.Context) error {
 	log := ctx.Logger()
 
-	returnFunc := func(err error) {
-		if ctx.Writer() != nil {
-			writer := ctx.Writer()
-			_, err := writer.Write([]byte(err.Error()))
-			if err != nil {
-				log.Warnf("writing to ctx.Writer failed: %w", err)
-			}
-		}
-
-		return
-	}
-
 	// First pull reset switch on off
-	endpoint := fmt.Sprintf("%s:%s/contexts/%s/machines/%s/auxiliaries/%s/api/reset",
-		p.hostname, p.port, p.contextID, p.machineID, p.deviceID)
-
-	postReset := postReset{
-		State: "off",
-	}
-
-	resetBody, err := json.Marshal(postReset)
+	statusCode, err := p.pressReset(ctx, "off")
 	if err != nil {
-		return fmt.Errorf("failed to marshal body: %w", err)
-	}
-
-	resetResp, err := HTTPRequest(ctx, http.MethodPost, endpoint, bytes.NewBuffer(resetBody))
-	if err != nil {
-		returnFunc(fmt.Errorf("failed to do http request"))
-
 		return err
 	}
-	defer resetResp.Body.Close()
-
-	if resetResp.StatusCode == 200 {
+	if statusCode == 200 {
 		log.Infof("reset switch is off")
 	} else {
-		returnFunc(fmt.Errorf("device could not be set on reset"))
-
 		return fmt.Errorf("device could not be set on reset")
 	}
 
 	// Than turn on the pdu again
-	endpoint = fmt.Sprintf("%s:%s/contexts/%s/machines/%s/power", p.hostname, p.port, p.contextID, p.machineID)
-
-	pduResp, err := HTTPRequest(ctx, http.MethodPut, endpoint, bytes.NewBuffer(nil))
+	statusCode, err = p.pressPDU(ctx, http.MethodPut)
 	if err != nil {
-		returnFunc(fmt.Errorf("failed to do http request"))
-
 		return err
 	}
-	defer pduResp.Body.Close()
 
-	if pduResp.StatusCode == 200 {
+	if statusCode == 200 {
 		log.Infof("pdu powered on")
 	} else {
-		returnFunc(fmt.Errorf("device could not be turned on"))
-
-		return fmt.Errorf("pdu could not be powered off")
+		return fmt.Errorf("pdu could not be powered on")
 	}
 
 	// Than press the power button
-	endpoint = fmt.Sprintf("%s:%s/contexts/%s/machines/%s/auxiliaries/%s/api/power",
-		p.hostname, p.port, p.contextID, p.machineID, p.deviceID)
-
-	postPower := postPower{
-		Duration: "3s",
-	}
-
-	powerBody, err := json.Marshal(postPower)
+	statusCode, err = p.pressPower(ctx, "3s")
 	if err != nil {
-		return fmt.Errorf("failed to marshal body: %w", err)
-	}
-
-	powerResp, err := HTTPRequest(ctx, http.MethodPost, endpoint, bytes.NewBuffer(powerBody))
-	if err != nil {
-		returnFunc(fmt.Errorf("failed to do http request"))
-
 		return err
 	}
-	defer powerResp.Body.Close()
-
-	if powerResp.StatusCode == 200 {
+	if statusCode == 200 {
 		log.Infof("dut is starting")
-		time.Sleep(1 * time.Second)
-	} else {
-		returnFunc(fmt.Errorf("device could not be turned on"))
 
+		time.Sleep(3 * time.Second)
+	} else {
 		return fmt.Errorf("device could not be turned on")
 	}
 
 	// Check the led if the device is on
-	endpoint = fmt.Sprintf("%s:%s/contexts/%s/machines/%s/auxiliaries/%s/api/led",
-		p.hostname, p.port, p.contextID, p.machineID, p.deviceID)
-
-	ledResp, err := HTTPRequest(ctx, http.MethodGet, endpoint, bytes.NewBuffer(nil))
+	state, err := p.ledState(ctx)
 	if err != nil {
-		returnFunc(fmt.Errorf("failed to do http request"))
-
 		return err
 	}
-	defer ledResp.Body.Close()
 
-	body, err := io.ReadAll(ledResp.Body)
-	if err != nil {
-		returnFunc(fmt.Errorf("could not extract response body: %v", err))
-
-		return fmt.Errorf("could not extract response body: %v", err)
-	}
-
-	if ledResp.StatusCode != 200 {
-		returnFunc(fmt.Errorf("led status could not be retrieved"))
-
-		return fmt.Errorf("led status could not be retrieved")
-	}
-
-	data := getState{}
-
-	if err := json.Unmarshal(body, &data); err != nil {
-		returnFunc(fmt.Errorf("could not unmarshal response body: %v", err))
-
-		return fmt.Errorf("could not unmarshal response body: %v", err)
-	}
-
-	log.Infof("%s", data.State)
-
-	if data.State != "on" {
+	if state != "on" {
 		return fmt.Errorf("dut is not on")
 	}
 
 	return nil
 }
 
+// powerOff turns off the device and ensures that -> pdu is off & reset is on.
 func (p *Parameter) powerOff(ctx xcontext.Context) error {
 	log := ctx.Logger()
 
-	returnFunc := func(err error) {
-		if ctx.Writer() != nil {
-			writer := ctx.Writer()
-			_, err := writer.Write([]byte(err.Error()))
-			if err != nil {
-				log.Warnf("writing to ctx.Writer failed: %w", err)
-			}
-		}
-
-		return
-	}
-
-	// First press power button for 3s
-	endpoint := fmt.Sprintf("%s:%s/contexts/%s/machines/%s/auxiliaries/%s/api/power",
-		p.hostname, p.port, p.contextID, p.machineID, p.deviceID)
-
-	postPower := postPower{
-		Duration: "3s",
-	}
-
-	powerBody, err := json.Marshal(postPower)
+	// First check if device needs to be powered down
+	// Check the led if the device is on
+	state, err := p.ledState(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to marshal body: %w", err)
-	}
-
-	resp, err := HTTPRequest(ctx, http.MethodPost, endpoint, bytes.NewBuffer(powerBody))
-	if err != nil {
-		returnFunc(fmt.Errorf("failed to do http request"))
-
 		return err
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode == 200 {
-		log.Infof("dut is shutting down")
+	if state == "on" {
+		// If device is on, press power button for 3s
+		statusCode, err := p.pressPower(ctx, "3s")
+		if err != nil {
+			return err
+		}
+		if statusCode == 200 {
+			log.Infof("dut is shutting down")
 
-		time.Sleep(15 * time.Second)
-	} else {
-		log.Infof("dut is was not powered down gracefully")
-
-		returnFunc(fmt.Errorf("device could not be turned off"))
+			time.Sleep(15 * time.Second)
+		} else {
+			log.Infof("dut is was not powered down gracefully")
+		}
 	}
 
 	// Than turn off the pdu, even if the graceful shutdown was not working
-	endpoint = fmt.Sprintf("%s:%s/contexts/%s/machines/%s/power", p.hostname, p.port, p.contextID, p.machineID)
-
-	resp, err = HTTPRequest(ctx, http.MethodDelete, endpoint, bytes.NewBuffer(nil))
+	statusCode, err := p.pressPDU(ctx, http.MethodDelete)
 	if err != nil {
-		returnFunc(fmt.Errorf("failed to do http request"))
-
 		return err
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == 200 {
+	if statusCode == 200 {
 		log.Infof("pdu powered off")
 	} else {
-		returnFunc(fmt.Errorf("device could not be turned on"))
+		log.Infof("pdu could not be powered off")
 
 		return fmt.Errorf("pdu could not be powered off")
 	}
 
 	// Than pull the reset switch on on
-	endpoint = fmt.Sprintf("%s:%s/contexts/%s/machines/%s/auxiliaries/%s/api/reset",
-		p.hostname, p.port, p.contextID, p.machineID, p.deviceID)
-
-	postReset := postReset{
-		State: "on",
-	}
-
-	resetBody, err := json.Marshal(postReset)
+	statusCode, err = p.pressReset(ctx, "on")
 	if err != nil {
-		return fmt.Errorf("failed to marshal body: %w", err)
-	}
-
-	resp, err = HTTPRequest(ctx, http.MethodPost, endpoint, bytes.NewBuffer(resetBody))
-	if err != nil {
-		returnFunc(fmt.Errorf("failed to do http request"))
-
 		return err
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == 200 {
+	if statusCode == 200 {
 		log.Infof("reset is in state on")
 	} else {
-		returnFunc(fmt.Errorf("device could not be set on reset"))
-
 		return fmt.Errorf("device could not be set on reset")
 	}
 
 	log.Infof("successfully powered down dut")
 
 	return nil
+}
+
+func (p *Parameter) ledState(ctx xcontext.Context) (string, error) {
+	endpoint := fmt.Sprintf("%s:%s/contexts/%s/machines/%s/auxiliaries/%s/api/led",
+		p.hostname, p.port, p.contextID, p.machineID, p.deviceID)
+
+	ledResp, err := HTTPRequest(ctx, http.MethodGet, endpoint, bytes.NewBuffer(nil))
+	if err != nil {
+		return "", fmt.Errorf("failed to do http request: %v", err)
+	}
+	defer ledResp.Body.Close()
+
+	body, err := io.ReadAll(ledResp.Body)
+	if err != nil {
+		return "", fmt.Errorf("could not extract response body: %v", err)
+	}
+
+	if ledResp.StatusCode != 200 {
+		return "", fmt.Errorf("led status could not be retrieved")
+	}
+
+	data := getState{}
+
+	if err := json.Unmarshal(body, &data); err != nil {
+		return "", fmt.Errorf("could not unmarshal response body: %v", err)
+	}
+
+	return data.State, nil
+}
+
+// pressPower pushes the power button for the time of 'duration'.
+// duration can be set from 0s to 20s.
+func (p *Parameter) pressPower(ctx xcontext.Context, duration string) (int, error) {
+	endpoint := fmt.Sprintf("%s:%s/contexts/%s/machines/%s/auxiliaries/%s/api/power",
+		p.hostname, p.port, p.contextID, p.machineID, p.deviceID)
+
+	postPower := postPower{
+		Duration: duration,
+	}
+
+	powerBody, err := json.Marshal(postPower)
+	if err != nil {
+		return 0, fmt.Errorf("failed to marshal body: %w", err)
+	}
+
+	resp, err := HTTPRequest(ctx, http.MethodPost, endpoint, bytes.NewBuffer(powerBody))
+	if err != nil {
+		return 0, fmt.Errorf("failed to do http request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode, nil
+}
+
+// pressPDU toggles the PDU as you define the method input parameter.
+// http.MethodDelete does power off the pdu
+// http.MethodPut does power on the pdu
+func (p *Parameter) pressPDU(ctx xcontext.Context, method string) (int, error) {
+	if method != http.MethodDelete && method != http.MethodPut {
+		return 0, fmt.Errorf("invalid method")
+	}
+
+	endpoint := fmt.Sprintf("%s:%s/contexts/%s/machines/%s/power", p.hostname, p.port, p.contextID, p.machineID)
+
+	resp, err := HTTPRequest(ctx, method, endpoint, bytes.NewBuffer(nil))
+	if err != nil {
+		return 0, fmt.Errorf("failed to do http request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode, nil
+}
+
+// pressReset toggles the Reset button regarding the state that is passed in.
+// A valid state is either 'on' or 'off'
+func (p *Parameter) pressReset(ctx xcontext.Context, state string) (int, error) {
+	if state != "on" && state != "off" {
+		return 0, fmt.Errorf("invalid state")
+	}
+
+	endpoint := fmt.Sprintf("%s:%s/contexts/%s/machines/%s/auxiliaries/%s/api/reset",
+		p.hostname, p.port, p.contextID, p.machineID, p.deviceID)
+
+	postReset := postReset{
+		State: state,
+	}
+
+	resetBody, err := json.Marshal(postReset)
+	if err != nil {
+		return 0, fmt.Errorf("failed to marshal body: %w", err)
+	}
+
+	resp, err := HTTPRequest(ctx, http.MethodPost, endpoint, bytes.NewBuffer(resetBody))
+	if err != nil {
+		return 0, fmt.Errorf("failed to do http request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode, nil
 }

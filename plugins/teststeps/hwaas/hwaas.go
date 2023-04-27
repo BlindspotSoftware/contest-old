@@ -201,6 +201,8 @@ func (hws *HWaaS) Run(ctx xcontext.Context, ch test.TestStepChannels, params tes
 				switch args[0] {
 				case "on":
 					if err := parameter.powerOn(ctx); err != nil {
+						returnFunc(err)
+
 						return err
 					}
 
@@ -208,6 +210,8 @@ func (hws *HWaaS) Run(ctx xcontext.Context, ch test.TestStepChannels, params tes
 
 				case "off":
 					if err := parameter.powerOff(ctx); err != nil {
+						returnFunc(err)
+
 						return err
 					}
 
@@ -229,29 +233,13 @@ func (hws *HWaaS) Run(ctx xcontext.Context, ch test.TestStepChannels, params tes
 			if len(args) >= 2 {
 				switch args[0] {
 				case "write":
-					// if args[1] == "" {
-					// 	returnFunc(fmt.Errorf("no file was set to read or write: %v\n", err))
+					if err := parameter.flashWrite(ctx, args[1]); err != nil {
+						returnFunc(err)
 
-					// 	return err
-					// }
+						return err
+					}
 
-					// endpoint := fmt.Sprintf("%s:%s/contexts/%s/machines/%s/flash", parameter.hostname, parameter.port, parameter.contextID, parameter.machineID)
-
-					// if isBusy := isTargetBusy(ctx, endpoint); isBusy {
-					// 	returnFunc(fmt.Errorf("target is currently busy"))
-
-					// 	return err
-					// }
-
-					// err = flashTarget(ctx, endpoint, args[1])
-					// if err != nil {
-					// 	returnFunc(fmt.Errorf("flashing %s failed: %v\n", args[1], err))
-
-					// 	return err
-					// }
-
-					// log.Infof("successfully flashed binary")
-
+					return nil
 				default:
 					returnFunc(fmt.Errorf("Failed to execute the flash command. The argument %q is not valid. Possible values are 'read /path/to/binary' and 'write /path/to/binary'.", args))
 
