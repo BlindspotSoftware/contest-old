@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/linuxboot/contest/pkg/event"
@@ -47,7 +48,7 @@ type getState struct {
 var Name = "HWaaS"
 
 // We need a default timeout to avoid endless running tests.
-const defaultTimeoutParameter = "15m"
+const defaultTimeoutParameter time.Duration = 15 * time.Minute
 
 // HWaaS is used to run arbitrary commands as test steps.
 type HWaaS struct {

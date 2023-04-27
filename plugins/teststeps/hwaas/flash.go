@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/linuxboot/contest/pkg/xcontext"
 )
@@ -70,10 +71,36 @@ func (p *Parameter) flashWrite(ctx xcontext.Context, arg string) error {
 	if targetInfo.State == "busy" {
 		return fmt.Errorf("target is currently busy")
 	}
+	if targetInfo.Error != "" {
+		log.Infof("error from last flash: %s", targetInfo.Error)
+	}
 
 	err = flashTarget(ctx, endpoint, arg)
 	if err != nil {
 		return fmt.Errorf("flashing %s failed: %v\n", arg, err)
+	}
+
+	timestamp := time.Now()
+
+	for {
+		targetInfo, err := getTargetState(ctx, endpoint)
+		if err != nil {
+			return err
+		}
+		if targetInfo.State == "ready" {
+			break
+		}
+		if targetInfo.State == "busy" {
+			log.Infof("target is currently busy")
+		}
+		if targetInfo.Error != "" {
+			log.Infof("error from last flash: %s", targetInfo.Error)
+		}
+		if time.Now().Sub(timestamp) >= defaultTimeoutParameter {
+			return fmt.Errorf("flashing failed: timeout")
+		}
+
+		time.Sleep(time.Second)
 	}
 
 	log.Infof("successfully flashed binary")
@@ -98,6 +125,8 @@ func (p *Parameter) flashWrite(ctx xcontext.Context, arg string) error {
 	} else {
 		return fmt.Errorf("reset switch could not be turned off")
 	}
+
+	time.Sleep(time.Second)
 
 	// Than turn on the pdu again
 	statusCode, err = p.pressPDU(ctx, http.MethodPut)
@@ -165,6 +194,8 @@ func flashTarget(ctx xcontext.Context, endpoint string, filePath string) error {
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("failed to upload binary")
 	}
+
+	time.Sleep(20 * time.Second)
 
 	postFlash := postFlash{
 		Action: "write",
