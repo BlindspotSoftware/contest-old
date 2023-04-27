@@ -257,8 +257,6 @@ func (hws *HWaaS) Run(ctx xcontext.Context, ch test.TestStepChannels, params tes
 
 			return err
 		}
-
-		return nil
 	}
 
 	return teststeps.ForEachTarget(Name, ctx, ch, f)

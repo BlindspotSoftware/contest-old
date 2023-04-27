@@ -11,6 +11,10 @@ import (
 	"github.com/linuxboot/contest/pkg/xcontext"
 )
 
+// HTTPRequest triggerers a http request and returns the response. The parameter that can be set are:
+// method: can be every http method
+// endpoint: api endpoint that shall be requested
+// body: the body of the request
 func HTTPRequest(ctx xcontext.Context, method string, endpoint string, body io.Reader) (*http.Response, error) {
 	log := ctx.Logger()
 
@@ -28,9 +32,7 @@ func HTTPRequest(ctx xcontext.Context, method string, endpoint string, body io.R
 
 	jsonBody, err := json.Marshal(resp.Body)
 	if err != nil {
-		log.Warnf("failed to marshal resp.Body")
-
-		return nil, err
+		return nil, fmt.Errorf("failed to marshal resp.Body: %v", err)
 	}
 
 	if ctx.Writer() != nil {
@@ -85,7 +87,7 @@ func (p *Parameter) powerOn(ctx xcontext.Context) error {
 	}
 
 	// Check the led if the device is on
-	state, err := p.ledState(ctx)
+	state, err := p.getState(ctx, "led")
 	if err != nil {
 		return err
 	}
@@ -103,7 +105,7 @@ func (p *Parameter) powerOff(ctx xcontext.Context) error {
 
 	// First check if device needs to be powered down
 	// Check the led if the device is on
-	state, err := p.ledState(ctx)
+	state, err := p.getState(ctx, "led")
 	if err != nil {
 		return err
 	}
@@ -150,34 +152,6 @@ func (p *Parameter) powerOff(ctx xcontext.Context) error {
 	log.Infof("successfully powered down dut")
 
 	return nil
-}
-
-func (p *Parameter) ledState(ctx xcontext.Context) (string, error) {
-	endpoint := fmt.Sprintf("%s:%s/contexts/%s/machines/%s/auxiliaries/%s/api/led",
-		p.hostname, p.port, p.contextID, p.machineID, p.deviceID)
-
-	ledResp, err := HTTPRequest(ctx, http.MethodGet, endpoint, bytes.NewBuffer(nil))
-	if err != nil {
-		return "", fmt.Errorf("failed to do http request: %v", err)
-	}
-	defer ledResp.Body.Close()
-
-	body, err := io.ReadAll(ledResp.Body)
-	if err != nil {
-		return "", fmt.Errorf("could not extract response body: %v", err)
-	}
-
-	if ledResp.StatusCode != 200 {
-		return "", fmt.Errorf("led status could not be retrieved")
-	}
-
-	data := getState{}
-
-	if err := json.Unmarshal(body, &data); err != nil {
-		return "", fmt.Errorf("could not unmarshal response body: %v", err)
-	}
-
-	return data.State, nil
 }
 
 // pressPower pushes the power button for the time of 'duration'.
@@ -249,4 +223,34 @@ func (p *Parameter) pressReset(ctx xcontext.Context, state string) (int, error) 
 	defer resp.Body.Close()
 
 	return resp.StatusCode, nil
+}
+
+// getState returns the state of either: 'led', 'reset' or 'vcc'.
+// The input parameter command should have one of this values.
+func (p *Parameter) getState(ctx xcontext.Context, command string) (string, error) {
+	endpoint := fmt.Sprintf("%s:%s/contexts/%s/machines/%s/auxiliaries/%s/api/%s",
+		p.hostname, p.port, p.contextID, p.machineID, p.deviceID, command)
+
+	resp, err := HTTPRequest(ctx, http.MethodGet, endpoint, bytes.NewBuffer(nil))
+	if err != nil {
+		return "", fmt.Errorf("failed to do http request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("could not extract response body: %v", err)
+	}
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("vcc pin status could not be retrieved")
+	}
+
+	data := getState{}
+
+	if err := json.Unmarshal(body, &data); err != nil {
+		return "", fmt.Errorf("could not unmarshal response body: %v", err)
+	}
+
+	return data.State, nil
 }
