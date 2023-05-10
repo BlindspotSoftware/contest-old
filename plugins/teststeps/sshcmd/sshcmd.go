@@ -297,6 +297,7 @@ func (ts *SSHCmd) Run(ctx xcontext.Context, ch test.TestStepChannels, params tes
 						matches := re.FindAll(stdout.Bytes(), -1)
 						if len(matches) > 0 {
 							log.Infof("match for regex '%s' found", expect)
+							return returnFunc(stdout, stderr, target, nil)
 						} else {
 							return returnFunc(stdout, stderr, target, fmt.Errorf("match for %s not found for target %v", expect, target))
 						}
