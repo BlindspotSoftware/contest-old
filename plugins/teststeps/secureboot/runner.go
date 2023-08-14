@@ -285,8 +285,10 @@ func (ts *TestStep) reset(
 			return outcome, fmt.Errorf("failed unexpectedly to enroll secure boot keys for hierarchy %s: %v", ts.inputStepParams.Parameter.Hierarchy, string(stderr))
 		}
 	case true:
+		stdoutMsg.WriteString(fmt.Sprintf("Command Stderr:\n%s\n\n\n", string(stderr)))
+
 		if len(stderr) == 0 {
-			return outcome, fmt.Errorf("enrolled secure boot keys for hierarchy %s, but expected to fail", ts.inputStepParams.Parameter.Hierarchy)
+			return outcome, fmt.Errorf("reset secure boot keys for hierarchy %s, but expected to fail", ts.inputStepParams.Parameter.Hierarchy)
 		}
 	}
 
@@ -331,7 +333,7 @@ func (ts *TestStep) importKeys(
 		}
 
 		if len(stderr) != 0 {
-			return outcome, fmt.Errorf("failed to import secure boot keys to be enrolled: %v", string(stderr))
+			return outcome, fmt.Errorf("failed to import secure boot keys: %v", string(stderr))
 		}
 
 	}
@@ -420,6 +422,8 @@ func (ts *TestStep) enrollKeys(
 			return outcome, fmt.Errorf("failed unexpectedly to enroll secure boot keys for hierarchy %s: %v", ts.inputStepParams.Parameter.Hierarchy, string(stderr))
 		}
 	case true:
+		stdoutMsg.WriteString(fmt.Sprintf("Command Stderr:\n%s\n\n\n", string(stderr)))
+
 		if len(stderr) == 0 {
 			return outcome, fmt.Errorf("enrolled secure boot keys for hierarchy %s, but expected to fail", ts.inputStepParams.Parameter.Hierarchy)
 		}
@@ -484,12 +488,14 @@ func (ts *TestStep) rotateKeys(
 			return outcome, fmt.Errorf("failed unexpectedly to rotate secure boot keys for hierarchy %s: %v", ts.inputStepParams.Parameter.Hierarchy, string(stderr))
 		}
 	case true:
+		stdoutMsg.WriteString(fmt.Sprintf("Command Stderr:\n%s\n\n\n", string(stderr)))
+
 		if len(stderr) == 0 {
 			return outcome, fmt.Errorf("rotated secure boot keys for hierarchy %s, but expected to fail", ts.inputStepParams.Parameter.Hierarchy)
 		}
 	}
 
-	// enrolled keys needs some time to be persistent
+	// rotated keys needs some time to be persistent
 	time.Sleep(1500 * time.Millisecond)
 
 	return outcome, err
@@ -567,11 +573,8 @@ func execCmdWithArgs(ctx xcontext.Context, privileged bool, cmd string, args []s
 
 	stdout, stderr := getOutputFromReader(stdoutPipe, stderrPipe)
 
-	stdoutMsg.WriteString(fmt.Sprintf("Command Stdout:\n%s\n", string(stdout)))
-	stderrMsg.WriteString(fmt.Sprintf("Command Stderr: \n%s\n", string(stderr)))
-
-	stdoutMsg.WriteString("\n")
-	stderrMsg.WriteString("\n")
+	stdoutMsg.WriteString(fmt.Sprintf("Command Stdout:\n%s\n\n\n", string(stdout)))
+	stderrMsg.WriteString(fmt.Sprintf("Command Stderr: \n%s\n\n\n", string(stderr)))
 
 	return string(stdout), string(stderr), outcome, nil
 }
