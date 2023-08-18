@@ -17,11 +17,11 @@ import (
 const (
 	defaultTimeout   time.Duration = 15 * time.Minute
 	defaultContextID string        = "0fb4acd8-e429-11ed-b5ea-0242ac120002"
-	defaultMachineID string        = "machine"
-	defaultDeviceID  string        = "device"
+	defaultMachineID string        = "ws"
+	defaultDeviceID  string        = "flasher"
 	defaultHost      string        = "http://9e-hwaas-aux1.lab.9e.network"
 	defaultPort      int           = 80
-	defaultVersion   string        = ""
+	defaultVersion   string        = "/v2"
 	in                             = "input"
 )
 
@@ -98,6 +98,10 @@ func (ts *TestStep) validateAndPopulate(stepParams test.TestStepParameters) erro
 
 	if ts.Parameter.Command == "" {
 		return fmt.Errorf("missing or empty 'command' parameter")
+	}
+
+	if len(ts.Parameter.Args) == 0 {
+		return fmt.Errorf("missing or empty 'args' parameter")
 	}
 
 	return nil
