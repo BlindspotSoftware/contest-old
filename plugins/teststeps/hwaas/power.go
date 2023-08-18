@@ -20,25 +20,25 @@ const (
 )
 
 // powerCmds is a helper function to call into the different power commands
-func (r *TargetRunner) powerCmds(ctx xcontext.Context, stdoutMsg, stderrMsg *strings.Builder) error {
-	if len(r.ts.Parameter.Args) >= 1 {
-		switch r.ts.Parameter.Args[0] {
+func (ts *TestStep) powerCmds(ctx xcontext.Context, outputBuf *strings.Builder) error {
+	if len(ts.Parameter.Args) >= 1 {
+		switch ts.Parameter.Args[0] {
 
 		case "on":
-			if err := r.ts.powerOn(ctx, stdoutMsg); err != nil {
+			if err := ts.powerOn(ctx, outputBuf); err != nil {
 				return err
 			}
 
 			return nil
 
 		case "off":
-			if err := r.ts.powerOffSoft(ctx, stdoutMsg); err != nil {
+			if err := ts.powerOffSoft(ctx, outputBuf); err != nil {
 				return err
 			}
 
-			if len(r.ts.Parameter.Args) >= 2 {
-				if r.ts.Parameter.Args[1] == "hard" {
-					if err := r.ts.powerOffHard(ctx, stdoutMsg); err != nil {
+			if len(ts.Parameter.Args) >= 2 {
+				if ts.Parameter.Args[1] == "hard" {
+					if err := ts.powerOffHard(ctx, outputBuf); err != nil {
 						return err
 					}
 				} else {
@@ -49,7 +49,7 @@ func (r *TargetRunner) powerCmds(ctx xcontext.Context, stdoutMsg, stderrMsg *str
 			return nil
 
 		default:
-			return fmt.Errorf("failed to execute the power command. The argument '%s' is not valid. Possible values are 'on' and 'off'.", r.ts.Parameter.Args)
+			return fmt.Errorf("failed to execute the power command. The argument '%s' is not valid. Possible values are 'on' and 'off'.", ts.Parameter.Args)
 		}
 	} else {
 		return fmt.Errorf("failed to execute the power command. Args is empty. Possible values are 'on' and 'off'.")
@@ -57,7 +57,7 @@ func (r *TargetRunner) powerCmds(ctx xcontext.Context, stdoutMsg, stderrMsg *str
 }
 
 // powerOn turns on the device. To power the device on we have to fulfill this requirements -> reset is off -> pdu is on.
-func (ts *TestStep) powerOn(ctx xcontext.Context, stdoutMsg *strings.Builder) error {
+func (ts *TestStep) powerOn(ctx xcontext.Context, outputBuf *strings.Builder) error {
 	if err := ts.unresetDUT(ctx); err != nil {
 		return fmt.Errorf("Failed to power on DUT: %v", err)
 	}
@@ -89,13 +89,13 @@ func (ts *TestStep) powerOn(ctx xcontext.Context, stdoutMsg *strings.Builder) er
 		return fmt.Errorf("Failed to power on DUT: State is '%s'", state)
 	}
 
-	stdoutMsg.WriteString("DUT was powered on successfully.\n")
+	outputBuf.WriteString("DUT was powered on successfully.\n")
 
 	return nil
 }
 
 // powerOffSoft turns off the device.
-func (ts *TestStep) powerOffSoft(ctx xcontext.Context, stdoutMsg *strings.Builder) error {
+func (ts *TestStep) powerOffSoft(ctx xcontext.Context, outputBuf *strings.Builder) error {
 	// First check if device needs to be powered down
 	// Check the led if the device is on
 	state, err := ts.getState(ctx, led)
@@ -113,7 +113,7 @@ func (ts *TestStep) powerOffSoft(ctx xcontext.Context, stdoutMsg *strings.Builde
 		time.Sleep(12 * time.Second)
 	}
 
-	stdoutMsg.WriteString("DUT was powered off successfully.\n")
+	outputBuf.WriteString("DUT was powered off successfully.\n")
 
 	return nil
 }
