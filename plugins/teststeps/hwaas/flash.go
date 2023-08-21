@@ -60,8 +60,8 @@ func (ts *TestStep) flashWrite(ctx xcontext.Context, outputBuf *strings.Builder,
 		return err
 	}
 
-	endpoint := fmt.Sprintf("%s:%d%s/contexts/%s/machines/%s/auxiliaries/%s/api/flash",
-		ts.Parameter.Host, ts.Parameter.Port, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID, ts.Parameter.DeviceID)
+	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/auxiliaries/%s/api/flash",
+		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID, ts.Parameter.DeviceID)
 
 	targetInfo, err := getTargetState(ctx, endpoint)
 	if err != nil {
@@ -104,8 +104,8 @@ func (ts *TestStep) flashRead(ctx xcontext.Context, outputBuf *strings.Builder, 
 		return err
 	}
 
-	endpoint := fmt.Sprintf("%s:%d%s/contexts/%s/machines/%s/auxiliaries/%s/api/flash",
-		ts.Parameter.Host, ts.Parameter.Port, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID, ts.Parameter.DeviceID)
+	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/auxiliaries/%s/api/flash",
+		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID, ts.Parameter.DeviceID)
 
 	targetInfo, err := getTargetState(ctx, endpoint)
 	if err != nil {

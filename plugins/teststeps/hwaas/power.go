@@ -136,8 +136,8 @@ type postPower struct {
 // postPower pushes the power button for the time of 'duration'.
 // duration can be set from 0s to 20s.
 func (ts *TestStep) postPower(ctx xcontext.Context, duration string) error {
-	endpoint := fmt.Sprintf("%s:%d%s/contexts/%s/machines/%s/auxiliaries/%s/api/power",
-		ts.Parameter.Host, ts.Parameter.Port, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID, ts.Parameter.DeviceID)
+	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/auxiliaries/%s/api/power",
+		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID, ts.Parameter.DeviceID)
 
 	postPower := postPower{
 		Duration: duration,
@@ -169,8 +169,8 @@ func (ts *TestStep) pressPDU(ctx xcontext.Context, method string) error {
 		return fmt.Errorf("Invalid method '%s'. Only supported methods for toggeling the PDU are: '%s' and '%s'", method, http.MethodDelete, http.MethodPut)
 	}
 
-	endpoint := fmt.Sprintf("%s:%d%s/contexts/%s/machines/%s/power",
-		ts.Parameter.Host, ts.Parameter.Port, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID)
+	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/power",
+		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID)
 
 	resp, err := HTTPRequest(ctx, method, endpoint, bytes.NewBuffer(nil))
 	if err != nil {
@@ -205,8 +205,8 @@ func (ts *TestStep) postReset(ctx xcontext.Context, wantState string) error {
 		return fmt.Errorf("Invalid state '%s'. Only supported states for reset are: '%s' and '%s'", wantState, on, off)
 	}
 
-	endpoint := fmt.Sprintf("%s:%d%s/contexts/%s/machines/%s/auxiliaries/%s/api/reset",
-		ts.Parameter.Host, ts.Parameter.Port, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID, ts.Parameter.DeviceID)
+	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/auxiliaries/%s/api/reset",
+		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID, ts.Parameter.DeviceID)
 
 	postReset := postReset{
 		State: wantState,
@@ -247,8 +247,8 @@ type getState struct {
 // getState returns the state of either: 'led', 'reset' or 'vcc'.
 // The input parameter command should have one of this values.
 func (ts *TestStep) getState(ctx xcontext.Context, command string) (string, error) {
-	endpoint := fmt.Sprintf("%s:%d%s/contexts/%s/machines/%s/auxiliaries/%s/api/%s",
-		ts.Parameter.Host, ts.Parameter.Port, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID, ts.Parameter.DeviceID, command)
+	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/auxiliaries/%s/api/%s",
+		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID, ts.Parameter.DeviceID, command)
 
 	resp, err := HTTPRequest(ctx, http.MethodGet, endpoint, bytes.NewBuffer(nil))
 	if err != nil {
@@ -277,8 +277,8 @@ func (ts *TestStep) getState(ctx xcontext.Context, command string) (string, erro
 // getPDUState returns the state of either: 'led', 'reset' or 'vcc'.
 // The input parameter command should have one of this values.
 func (ts *TestStep) getPDUState(ctx xcontext.Context) (bool, error) {
-	endpoint := fmt.Sprintf("%s:%d%s/contexts/%s/machines/%s/power",
-		ts.Parameter.Host, ts.Parameter.Port, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID)
+	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/power",
+		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID)
 
 	resp, err := HTTPRequest(ctx, http.MethodGet, endpoint, bytes.NewBuffer(nil))
 	if err != nil {

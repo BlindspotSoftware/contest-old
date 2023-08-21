@@ -57,7 +57,6 @@ func writeTestStep(step *TestStep, builders ...*strings.Builder) {
 		builder.WriteString(fmt.Sprintf("    Command: %s\n", step.Parameter.Command))
 		builder.WriteString(fmt.Sprintf("    Arguments: %s\n", step.Parameter.Args))
 		builder.WriteString(fmt.Sprintf("    Host: %s\n", step.Parameter.Host))
-		builder.WriteString(fmt.Sprintf("    Port: %d\n", step.Parameter.Port))
 		builder.WriteString(fmt.Sprintf("    ContextID: %s\n", step.Parameter.ContextID))
 		builder.WriteString(fmt.Sprintf("    MachineID: %s\n", step.Parameter.MachineID))
 		builder.WriteString(fmt.Sprintf("    ContextID: %s\n", step.Parameter.ContextID))
@@ -67,7 +66,6 @@ func writeTestStep(step *TestStep, builders ...*strings.Builder) {
 		builder.WriteString("\n")
 
 		builder.WriteString("Default Values:\n")
-		builder.WriteString(fmt.Sprintf("  Port: %d\n", defaultPort))
 		builder.WriteString(fmt.Sprintf("  Timeout: %s\n", defaultTimeout))
 
 		builder.WriteString("\n\n")
