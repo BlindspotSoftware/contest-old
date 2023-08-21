@@ -20,15 +20,15 @@ const (
 	defaultMachineID string        = "ws"
 	defaultDeviceID  string        = "flasher"
 	defaultHost      string        = "http://9e-hwaas-aux1.lab.9e.network"
-	defaultPort      int           = 80
-	defaultVersion   string        = "/v2"
-	in                             = "input"
+)
+
+const (
+	in = "input"
 )
 
 type inputStepParams struct {
 	Parameter struct {
 		Host      string   `json:"host,omitempty"`
-		Port      int      `json:"port,omitempty"`
 		Version   string   `json:"version,omitempty"`
 		ContextID string   `json:"context_id,omitempty"`
 		MachineID string   `json:"machine_id,omitempty"`
@@ -43,7 +43,7 @@ type inputStepParams struct {
 }
 
 // Name is the name used to look this plugin up.
-var Name = "HwaaS"
+const Name = "HwaaS"
 
 // TestStep implementation for this teststep plugin
 type TestStep struct {
@@ -74,14 +74,6 @@ func (ts *TestStep) validateAndPopulate(stepParams test.TestStepParameters) erro
 
 	if ts.Parameter.Host == "" {
 		ts.Parameter.Host = defaultHost
-	}
-
-	if ts.Parameter.Port == 0 {
-		ts.Parameter.Port = defaultPort
-	}
-
-	if ts.Parameter.Version == "" {
-		ts.Parameter.Version = defaultVersion
 	}
 
 	if ts.Parameter.ContextID == "" {
