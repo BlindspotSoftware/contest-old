@@ -59,7 +59,7 @@ func writeTestStep(step *TestStep, builders ...*strings.Builder) {
 		builder.WriteString(fmt.Sprintf("    Host: %s\n", step.Parameter.Host))
 		builder.WriteString(fmt.Sprintf("    ContextID: %s\n", step.Parameter.ContextID))
 		builder.WriteString(fmt.Sprintf("    MachineID: %s\n", step.Parameter.MachineID))
-		builder.WriteString(fmt.Sprintf("    ContextID: %s\n", step.Parameter.ContextID))
+		builder.WriteString(fmt.Sprintf("    DeviceID: %s\n", step.Parameter.DeviceID))
 		builder.WriteString(fmt.Sprintf("    Version: %s\n", step.Parameter.Version))
 		builder.WriteString("  Options:\n")
 		builder.WriteString(fmt.Sprintf("    Timeout: %s\n", time.Duration(step.Options.Timeout)))
