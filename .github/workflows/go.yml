@@ -26,8 +26,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
-          context: .
-          file: .github/dockerfiles/Dockerfile
+          context: .github/dockerfiles/
+          file: Dockerfile
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/contestgrpcserver:v0.3
           ssh: default=${{ env.SSH_AUTH_SOCK }}
