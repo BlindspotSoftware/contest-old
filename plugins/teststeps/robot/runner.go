@@ -89,8 +89,6 @@ func (ts *TestStep) runRobot(ctx xcontext.Context, outputBuf *strings.Builder, t
 		return fmt.Errorf("Failed to create proc: %w", err)
 	}
 
-	writeCommand(proc.String(), outputBuf)
-
 	stdoutPipe, err := proc.StdoutPipe()
 	if err != nil {
 		outputBuf.WriteString(fmt.Sprintf("Failed to pipe stdout: %v", err))
@@ -123,6 +121,12 @@ func (ts *TestStep) runRobot(ctx xcontext.Context, outputBuf *strings.Builder, t
 		outputBuf.WriteString(fmt.Sprintf("Tests failed: %v", outcome))
 
 		return fmt.Errorf("Tests failed: %v", outcome)
+	}
+
+	if strings.Contains(string(stderr), "File or directory to execute does not exist.") {
+		outputBuf.WriteString(fmt.Sprintf("Execution of test-file %s failed: does not exist", ts.Parameter.FilePath))
+
+		return fmt.Errorf("Execution of test-file %s failed: does not exist", ts.Parameter.FilePath)
 	}
 
 	return nil

@@ -90,17 +90,6 @@ func (ts *TestStep) writeTestStep(builders ...*strings.Builder) {
 	}
 }
 
-// Function to format command information and append it to a string builder.
-func writeCommand(args string, builders ...*strings.Builder) {
-	for _, builder := range builders {
-		builder.WriteString("Operation:\n")
-		builder.WriteString(args)
-		builder.WriteString("\n\n")
-
-		builder.WriteString("Output:\n")
-	}
-}
-
 // emitStderr emits the whole error message an returns the error
 func emitStderr(ctx xcontext.Context, message string, tgt *target.Target, ev testevent.Emitter, err error) error {
 	if err := emitEvent(ctx, EventStderr, eventPayload{Msg: message}, tgt, ev); err != nil {
