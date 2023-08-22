@@ -28,6 +28,10 @@ RUN touch /root/.ssh/config
 RUN echo "StrictHostKeyChecking no" > /root/.ssh/config
 RUN git config --global url."git@github.com:".insteadOf "https://github.com/"
 
+# Add SSH Keys for the DUTs
+ADD fwci /root/.ssh/fwci
+ADD fwci.pub /root/.ssh/fwci.pub
+
 # Clone contest server
 RUN --mount=type=ssh git clone https://github.com/firmwareci/contest.git /root/contest
 
