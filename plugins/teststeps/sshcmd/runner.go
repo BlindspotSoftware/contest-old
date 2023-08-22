@@ -60,8 +60,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 
 	writeTestStep(r.ts, &outputBuf)
 
-	_, err = r.ts.runCMD(ctx, &outputBuf, target, transport)
-	if err != nil {
+	if _, err := r.ts.runCMD(ctx, &outputBuf, target, transport); err != nil {
 		outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
@@ -103,9 +102,9 @@ func (ts *TestStep) runCMD(ctx xcontext.Context, outputBuf *strings.Builder, tar
 	// waiting on the process for its result; this way there's a semantic difference
 	// between "an error occured while launching" and "this was the outcome of the execution"
 	outcome := proc.Start(ctx)
-	if outcome == nil {
-		outcome = proc.Wait(ctx)
-	}
+	// if outcome == nil {
+	// 	outcome = proc.Wait(ctx)
+	// }
 
 	stdout, stderr := getOutputFromReader(stdoutPipe, stderrPipe, outputBuf)
 
