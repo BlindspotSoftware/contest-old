@@ -81,10 +81,7 @@ func (ts *TestStep) runCMD(ctx xcontext.Context, outputBuf *strings.Builder, tar
 		return nil, err
 	}
 
-	writeCommand(proc.String(), outputBuf, outputBuf)
-
-	outputBuf.WriteString("Command Stderr:\n")
-	outputBuf.WriteString("Command Stdout:\n")
+	writeCommand(proc.String(), outputBuf)
 
 	stdoutPipe, err := proc.StdoutPipe()
 	if err != nil {
@@ -112,11 +109,11 @@ func (ts *TestStep) runCMD(ctx xcontext.Context, outputBuf *strings.Builder, tar
 
 	stdout, stderr := getOutputFromReader(stdoutPipe, stderrPipe, outputBuf)
 
-	if outcome != nil {
-		return nil, fmt.Errorf("Error executing command: %v.\nLogs:\n%s\n", outcome, string(stderr))
-	}
+	outputBuf.WriteString(fmt.Sprintf("Command Stdout:\n%s\n", string(stdout)))
 
-	outputBuf.WriteString(fmt.Sprintf("%s\n", string(stdout)))
+	if outcome != nil {
+		return nil, fmt.Errorf("Error executing command: %v.\nCommand Stderr:\n%s\n", outcome, string(stderr))
+	}
 
 	if err = ts.parseOutput(outputBuf, stdout); err != nil {
 		return nil, err
