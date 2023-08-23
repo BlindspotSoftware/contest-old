@@ -53,6 +53,12 @@ func emitEvent(ctx xcontext.Context, name event.Name, payload interface{}, tgt *
 func writeTestStep(step *TestStep, builders ...*strings.Builder) {
 	for _, builder := range builders {
 		builder.WriteString("Input Parameter:\n")
+		builder.WriteString("  Bin:\n")
+		builder.WriteString(fmt.Sprintf("    Executable: %s\n", step.Bin.Executable))
+		builder.WriteString(fmt.Sprintf("    Args: %v\n", step.Bin.Args))
+		builder.WriteString(fmt.Sprintf("    WorkingDir: %s\n", step.Bin.WorkingDir))
+		builder.WriteString("\n")
+
 		builder.WriteString("  Transport:\n")
 		builder.WriteString(fmt.Sprintf("    Protocol: %s\n", step.Transport.Proto))
 		builder.WriteString("    Options: \n")

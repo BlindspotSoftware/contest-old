@@ -16,8 +16,6 @@ import (
 	"github.com/linuxboot/contest/plugins/teststeps/abstraction/transport"
 )
 
-type outcome error
-
 type TargetRunner struct {
 	ts *TestStep
 	ev testevent.Emitter
@@ -60,8 +58,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 
 	writeTestStep(r.ts, &outputBuf)
 
-	_, err = r.ts.runCMD(ctx, &outputBuf, target, transport)
-	if err != nil {
+	if err := r.ts.runCMD(ctx, &outputBuf, target, transport); err != nil {
 		outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
@@ -71,14 +68,13 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 }
 
 func (ts *TestStep) runCMD(ctx xcontext.Context, outputBuf *strings.Builder, target *target.Target,
-	transport transport.Transport,
-) (outcome, error) {
+	transport transport.Transport) error {
 	proc, err := transport.NewProcess(ctx, ts.Bin.Executable, ts.Bin.Args, ts.Bin.WorkingDir)
 	if err != nil {
 		err := fmt.Errorf("Failed to create proc: %w", err)
 		outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
-		return nil, err
+		return err
 	}
 
 	writeCommand(proc.String(), outputBuf)
@@ -88,7 +84,7 @@ func (ts *TestStep) runCMD(ctx xcontext.Context, outputBuf *strings.Builder, tar
 		err := fmt.Errorf("failed to pipe stdout: %v", err)
 		outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
-		return nil, err
+		return err
 	}
 
 	stderrPipe, err := proc.StderrPipe()
@@ -96,7 +92,7 @@ func (ts *TestStep) runCMD(ctx xcontext.Context, outputBuf *strings.Builder, tar
 		err := fmt.Errorf("failed to pipe stderr: %v", err)
 		outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
-		return nil, err
+		return err
 	}
 
 	// try to start the process, if that succeeds then the outcome is the result of
@@ -112,14 +108,14 @@ func (ts *TestStep) runCMD(ctx xcontext.Context, outputBuf *strings.Builder, tar
 	outputBuf.WriteString(fmt.Sprintf("Command Stdout:\n%s\n", string(stdout)))
 
 	if outcome != nil {
-		return nil, fmt.Errorf("Error executing command: %v.\nCommand Stderr:\n%s\n", outcome, string(stderr))
+		return fmt.Errorf("Error executing command: %v.\nCommand Stderr:\n%s\n", outcome, string(stderr))
 	}
 
 	if err = ts.parseOutput(outputBuf, stdout); err != nil {
-		return nil, err
+		return err
 	}
 
-	return outcome, err
+	return err
 }
 
 // getOutputFromReader reads data from the provided io.Reader instances
