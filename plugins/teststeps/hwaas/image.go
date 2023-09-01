@@ -211,7 +211,7 @@ func calcSHA256(path string) ([]byte, error) {
 	}
 
 	hash := sha256.New()
-	hashSum := hash.Sum(file)
+	hash.Write(file)
 
-	return hashSum, nil
+	return hash.Sum(nil), nil
 }
