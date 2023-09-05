@@ -46,7 +46,7 @@ func (ts *TestStep) flashCmds(ctx xcontext.Context, outputBuf *strings.Builder) 
 			return fmt.Errorf("failed to execute the flash command. The argument '%s' is not valid. Possible values are 'read /path/to/binary' and 'write /path/to/binary'.", ts.Parameter.Args)
 		}
 	} else {
-		return fmt.Errorf("failed to execute the power command. Args is not valid. Possible values are 'read /path/to/binary' and 'write /path/to/binary'.")
+		return fmt.Errorf("failed to execute the flash command. Args is not valid. Possible values are 'read /path/to/binary' and 'write /path/to/binary'.")
 	}
 }
 
@@ -266,7 +266,7 @@ func (ts *TestStep) readTarget(ctx xcontext.Context) error {
 		return fmt.Errorf("failed to do HTTP request: %v", err)
 	}
 
-	if resp.StatusCode != http.StatusCreated {
+	if !(resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusOK) {
 		return fmt.Errorf("failed to read image from target. Statuscode: %d, Response Body: %v", resp.StatusCode, resp.Body)
 	}
 
