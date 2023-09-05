@@ -197,7 +197,7 @@ func (ts *TestStep) pullFWImage(ctx xcontext.Context, filePath string) error {
 
 // postFWImage posts the binary to the target.
 func (ts *TestStep) postFWImage(ctx xcontext.Context, filePath string) error {
-	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/auxiliaries/%s/api/flash",
+	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/auxiliaries/%s/api/flash/file",
 		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID, ts.Parameter.DeviceID)
 
 	// open the binary that shall be flashed
@@ -221,7 +221,7 @@ func (ts *TestStep) postFWImage(ctx xcontext.Context, filePath string) error {
 	writer.Close()
 
 	// create the http request
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, fmt.Sprintf("%s%s", endpoint, "/file"), body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, endpoint, body)
 	if err != nil {
 		return fmt.Errorf("failed to create the http request: %v", err)
 	}
