@@ -181,6 +181,8 @@ func (ts *TestStep) runSet(
 		}
 
 		outputBuf.WriteString("\n\n")
+
+		time.Sleep(time.Second)
 	}
 
 	return finalErr
