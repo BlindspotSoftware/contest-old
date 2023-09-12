@@ -58,6 +58,14 @@ func (ts *TestStep) populateParams(stepParams test.TestStepParameters) error {
 		return fmt.Errorf("failed to deserialize %q parameters: %v", in, err)
 	}
 
+	if ts.Parameter.ToolPath == "" {
+		return fmt.Errorf("no tool path specified")
+	}
+
+	if ts.Parameter.ExpectedVersion == "" {
+		return fmt.Errorf("no expected version specified")
+	}
+
 	return nil
 }
 

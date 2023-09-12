@@ -89,6 +89,10 @@ func (ts *TestStep) runVersion(
 	ctx xcontext.Context, outputBuf *strings.Builder,
 	transport transport.Transport, params inputStepParams,
 ) error {
+	if params.Parameter.Format == "" {
+		params.Parameter.Format = "number"
+	}
+
 	args := []string{
 		params.Parameter.ToolPath,
 		cmd,
