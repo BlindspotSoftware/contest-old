@@ -63,6 +63,13 @@ func (ts *TestStep) populateParams(stepParams test.TestStepParameters) error {
 
 // ValidateParameters validates the parameters associated to the step
 func (ts *TestStep) ValidateParameters(_ xcontext.Context, stepParams test.TestStepParameters) error {
+	if ts.Parameter.ToolPath == "" {
+		return fmt.Errorf("no tool path specified")
+	}
+
+	if ts.Parameter.ExpectedVersion == "" {
+		return fmt.Errorf("no expected version specified")
+	}
 	return ts.populateParams(stepParams)
 }
 
