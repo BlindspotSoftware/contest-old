@@ -408,6 +408,8 @@ func (ts *TestStep) enrollKeys(
 	args := []string{
 		"enroll-keys",
 		"--microsoft",
+		"--firmware-builtin",
+		"--tpm-eventlog",
 		fmt.Sprintf("--partial=%v", ts.inputStepParams.Parameter.Hierarchy),
 	}
 
