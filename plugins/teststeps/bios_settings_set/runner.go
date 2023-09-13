@@ -223,7 +223,7 @@ func (ts *TestStep) parseOutput(stderr []byte) error {
 	}
 
 	if err.Msg != "" {
-		if err.Msg == "BIOS options are locked, needs unlocking." && ts.Parameter.ShallFail {
+		if err.Msg == "BIOS options are locked, needs unlocking." && ts.expect.ShouldFail {
 			return nil
 		} else if err.Msg != "" {
 			return errors.New(err.Msg)
