@@ -21,6 +21,7 @@ const (
 	fusb             = "fusb"
 	powerOnDuration  = "3s"
 	powerOffDuration = "12s"
+	rebootTimeout    = 30 * time.Second
 	unresetTimeout   = 10 * time.Second
 	powerTimeout     = 5 * time.Second
 	fusbPowerTimeout = 20 * time.Second
@@ -73,6 +74,8 @@ func (ts *TestStep) powerCmds(ctx xcontext.Context, outputBuf *strings.Builder) 
 					}
 				}
 			}
+
+			time.Sleep(rebootTimeout)
 
 			if err := ts.powerOn(ctx, outputBuf); err != nil {
 				return err
