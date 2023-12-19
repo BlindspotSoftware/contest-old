@@ -24,7 +24,7 @@ const (
 	rebootTimeout    = 30 * time.Second
 	unresetTimeout   = 10 * time.Second
 	powerTimeout     = 5 * time.Second
-	fusbPowerTimeout = 20 * time.Second
+	fusbPowerTimeout = 30 * time.Second
 	trialTimeout     = 200 * time.Millisecond
 	trials           = 5
 )
