@@ -43,7 +43,10 @@ func (ts *TestStep) powerCmds(ctx xcontext.Context, outputBuf *strings.Builder) 
 
 		case "off":
 			if err := ts.powerOffSoft(ctx, outputBuf); err != nil {
-				return err
+				outputBuf.WriteString(fmt.Sprintf("Failed to power off the device: %s. Trying to power off the device hard now.\n", err))
+				if err := ts.powerOffHard(ctx, outputBuf); err != nil {
+					return err
+				}
 			}
 
 			if len(ts.Parameter.Args) >= 2 {
