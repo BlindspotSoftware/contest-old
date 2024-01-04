@@ -29,7 +29,7 @@ RUN echo "StrictHostKeyChecking no" > /root/.ssh/config
 RUN git config --global url."git@github.com:".insteadOf "https://github.com/"
 
 # Clone contest server
-RUN --mount=type=ssh git clone https://github.com/firmwareci/contest.git /root/contest
+RUN --mount=type=ssh git clone https://github.com/blindspotsoftware/contest.git /root/contest
 
 WORKDIR /root/contest
 RUN --mount=type=ssh go build ./cmds/contest

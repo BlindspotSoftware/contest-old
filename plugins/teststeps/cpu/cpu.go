@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/firmwareci/system-suite/pkg/cpu"
+	"github.com/blindspotsoftware/system-suite/pkg/cpu"
 )
 
 const (
