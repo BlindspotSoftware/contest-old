@@ -94,6 +94,29 @@ func (r *TargetRunner) powerCmds(ctx xcontext.Context, stdoutMsg, stderrMsg *str
 			stdoutMsg.WriteString("Successfully powered off DUT.\n")
 
 			return nil
+		case "hardreset":
+			if !dutInterface.HasHardReset() {
+				return fmt.Errorf("The DUT does not support hardreset.")
+			}
+			if err := dutInterface.HardReset(); err != nil {
+				stderrMsg.WriteString(fmt.Sprintf("Failed to hardreset: %v\n", err))
+			}
+
+			stdoutMsg.WriteString("Successfully reset(hard) the DUT.\n")
+
+			if len(r.ts.expectStepParams) != 0 {
+				regexList, err := r.getRegexList()
+				if err != nil {
+					return fmt.Errorf("Failed to parse regex list: %v\n", err)
+				}
+
+				if err := r.serial(ctx, stdoutMsg, stderrMsg, dutInterface, regexList); err != nil {
+					return fmt.Errorf("the expect '%s' was not found in the logs", r.ts.expectStepParams)
+				}
+			}
+
+			return nil
+
 		case "powercycle":
 
 			if len(r.ts.Parameter.Args) != 2 {
@@ -120,7 +143,7 @@ func (r *TargetRunner) powerCmds(ctx xcontext.Context, stdoutMsg, stderrMsg *str
 				if err != nil {
 					return fmt.Errorf("Failed to power on: %v\n", err)
 				}
-				
+
 				if err := r.serial(ctx, stdoutMsg, stderrMsg, dutInterface, regexList); err != nil {
 					return fmt.Errorf("the expect '%v' was not found in the logs", r.ts.expectStepParams)
 				}
