@@ -58,9 +58,22 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 
 	switch params.Parameter.Command {
 	case power:
-		if err := r.ts.powerCmds(ctx, &outputBuf); err != nil {
-			outputBuf.WriteString(fmt.Sprintf("%v\n", err))
+		var err error
 
+		try := 1
+
+		for ; try <= 3; try++ {
+			if err = r.ts.powerCmds(ctx, &outputBuf); err != nil {
+				outputBuf.WriteString(fmt.Sprintf("%v failed on try %d\n", err, try))
+
+				time.Sleep(5 * time.Second)
+				continue
+			}
+
+			break
+		}
+
+		if try == 4 {
 			return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 		}
 
