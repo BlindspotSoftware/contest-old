@@ -317,7 +317,12 @@ func (ts *TestStep) postPower(ctx xcontext.Context, duration string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to Post to Power. Statuscode: %d, Response Body: %v", resp.StatusCode, resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("could not extract response body: %v", err)
+		}
+
+		return fmt.Errorf("failed to Post to Power. Statuscode: %d, Response Body: %v", resp.StatusCode, string(body))
 	}
 
 	return nil
@@ -335,7 +340,12 @@ func (ts *TestStep) postFusbPower(ctx xcontext.Context) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to post to Power. Statuscode: %d, Response Body: %v", resp.StatusCode, resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("could not extract response body: %v", err)
+		}
+
+		return fmt.Errorf("failed to post to Power. Statuscode: %d, Response Body: %v", resp.StatusCode, string(body))
 	}
 
 	return nil
@@ -359,7 +369,13 @@ func (ts *TestStep) pressPDU(ctx xcontext.Context, method string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("PDU could not be set to the correct state. Statuscode: %d, Response Body: %v", resp.StatusCode, resp.Body)
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("could not extract response body: %v", err)
+		}
+
+		return fmt.Errorf("PDU could not be set to the correct state. Statuscode: %d, Response Body: %v", resp.StatusCode, string(body))
 	} else {
 		time.Sleep(time.Second)
 
@@ -406,7 +422,13 @@ func (ts *TestStep) postReset(ctx xcontext.Context, wantState string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("reset could not be set to state '%s'", wantState)
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("could not extract response body: %v", err)
+		}
+
+		return fmt.Errorf("reset could not be set to state '%s': %s", wantState, string(body))
 	} else {
 		state, err := ts.getState(ctx, reset)
 		if err != nil {
@@ -438,13 +460,13 @@ func (ts *TestStep) getState(ctx xcontext.Context, command string) (string, erro
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("state could not be retrieved. Statuscode: %d, Response Body: %v", resp.StatusCode, resp.Body)
-	}
-
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("could not extract response body: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf(" %s state could not be retrieved. Statuscode: %d, Response Body: %s", command, resp.StatusCode, string(body))
 	}
 
 	data := getState{}
@@ -467,13 +489,13 @@ func (ts *TestStep) getFusbState(ctx xcontext.Context) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("state could not be retrieved. Statuscode: %d, Response Body: %v", resp.StatusCode, resp.Body)
-	}
-
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("could not extract response body: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("fusb state could not be retrieved. Statuscode: %d, Response Body: %s", resp.StatusCode, string(body))
 	}
 
 	data := getState{}
@@ -497,13 +519,13 @@ func (ts *TestStep) getPDUState(ctx xcontext.Context) (bool, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return false, fmt.Errorf("PDU state could not be retrieved. Statuscode: %d, Response Body: %v", resp.StatusCode, resp.Body)
-	}
-
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return false, fmt.Errorf("could not extract response body: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf(" pdu state could not be retrieved. Statuscode: %d, Response Body: %s", resp.StatusCode, string(body))
 	}
 
 	var state bool
