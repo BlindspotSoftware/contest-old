@@ -99,6 +99,13 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 			return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 		}
 
+	case "check":
+		if err := r.ts.runCheck(ctx, &outputBuf, transportProto); err != nil {
+			outputBuf.WriteString(fmt.Sprintf("%v", err))
+
+			return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
+		}
+
 	default:
 		err := fmt.Errorf("command not supported")
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
@@ -285,6 +292,65 @@ func (ts *TestStep) runDisable(
 
 	if err := parseOutput(outputBuf, stderr); err != nil {
 		return err
+	}
+
+	return err
+}
+
+func (ts *TestStep) runCheck(
+	ctx xcontext.Context, outputBuf *strings.Builder, transport transport.Transport,
+) error {
+	if ts.Parameter.CertPath == "" {
+		return fmt.Errorf("certificate file must be set for the comparison")
+	}
+
+	args := []string{
+		ts.Parameter.ToolPath,
+		cmd,
+		"check",
+		fmt.Sprintf("--cert=%s", ts.Parameter.CertPath),
+	}
+
+	proc, err := transport.NewProcess(ctx, privileged, args, "")
+	if err != nil {
+		return fmt.Errorf("failed to create process: %v", err)
+	}
+
+	writeCommand(proc.String(), outputBuf)
+
+	stdoutPipe, err := proc.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to pipe stdout: %v", err)
+	}
+
+	stderrPipe, err := proc.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to pipe stderr: %v", err)
+	}
+
+	// try to start the process, if that succeeds then the outcome is the result of
+	// waiting on the process for its result; this way there's a semantic difference
+	// between "an error occured while launching" and "this was the outcome of the execution"
+	outcome := proc.Start(ctx)
+	if outcome == nil {
+		outcome = proc.Wait(ctx)
+	}
+
+	stdout, stderr := getOutputFromReader(stdoutPipe, stderrPipe)
+
+	if len(string(stdout)) > 0 {
+		outputBuf.WriteString(fmt.Sprintf("Stdout:\n%s\n", string(stdout)))
+	} else if len(string(stderr)) > 0 {
+		outputBuf.WriteString(fmt.Sprintf("Stderr:\n%s\n", string(stderr)))
+	}
+
+	if outcome != nil {
+		return fmt.Errorf("failed to run bios certificate cmd: %v", outcome)
+	}
+
+	err = parseOutput(outputBuf, stderr)
+	if ts.ShouldFail && err != nil {
+		return nil
 	}
 
 	return err
