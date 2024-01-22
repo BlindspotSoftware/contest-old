@@ -169,8 +169,9 @@ func (ts *TestStep) runEnable(
 		return fmt.Errorf("failed to run bios certificate cmd: %v", outcome)
 	}
 
-	if err := parseOutput(outputBuf, stderr); err != nil {
-		return err
+	err = parseOutput(outputBuf, stderr)
+	if ts.ShouldFail && err != nil {
+		return nil
 	}
 
 	return err
@@ -290,8 +291,9 @@ func (ts *TestStep) runDisable(
 		return fmt.Errorf("failed to run bios certificate cmd: %v", outcome)
 	}
 
-	if err := parseOutput(outputBuf, stderr); err != nil {
-		return err
+	err = parseOutput(outputBuf, stderr)
+	if ts.ShouldFail && err != nil {
+		return nil
 	}
 
 	return err
