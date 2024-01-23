@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 	"time"
 
@@ -231,16 +232,22 @@ func parseOutput(parsingBuf *strings.Builder, stdout, stderr []byte, expectOptio
 		}
 	}
 
-	err := Error{}
+	exp, err := regexp.Compile(expectOption.Value)
+	if err != nil {
+		return fmt.Errorf("failed to compile regular expresion from expected value: %v", err)
+	}
+
+	errMsg := Error{}
+
 	if len(stderr) != 0 {
-		if err := json.Unmarshal(stderr, &err); err != nil {
+		if err := json.Unmarshal(stderr, &errMsg); err != nil {
 			return fmt.Errorf("failed to unmarshal stderr: %v", err)
 		}
 	}
 
-	if err.Msg == "" {
+	if errMsg.Msg == "" {
 		if expectOption.Option == output.Data.Name {
-			if expectOption.Value != output.Data.Value {
+			if !exp.MatchString(output.Data.Value) {
 				return fmt.Errorf("\u2717 BIOS setting '%s' is not as expected, have '%s' want '%s'.",
 					expectOption.Option, output.Data.Value, expectOption.Value)
 			} else {
@@ -249,7 +256,7 @@ func parseOutput(parsingBuf *strings.Builder, stdout, stderr []byte, expectOptio
 			}
 		}
 	} else {
-		return fmt.Errorf("\u2717 BIOS setting '%s' was not found in the attribute list: %s", expectOption.Option, err.Msg)
+		return fmt.Errorf("\u2717 BIOS setting '%s' was not found in the attribute list: %s", expectOption.Option, errMsg.Msg)
 	}
 
 	return nil
