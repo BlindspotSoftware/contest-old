@@ -101,7 +101,7 @@ func (ts *TestStep) powerOn(ctx xcontext.Context, outputBuf *strings.Builder) er
 	}
 
 	if ts.Parameter.ContextID == "db99f1e5-f438-418b-bfa4-30b72957ce33" || ts.Parameter.ContextID == "d6005a94-bfc8-4490-99dd-70a9c3cb5213" || // T14 Gen4 & T16 Gen2
-		ts.Parameter.ContextID == "b6c2023b-1c35-4633-95c1-3eb796d23572" || ts.Parameter.ContextID == "3d2702d5-8c04-4144-8455-44d80a6cbed3" { // P14s Gen4 & X13 Gen4 Yoga
+		ts.Parameter.ContextID == "b6c2023b-1c35-4633-95c1-3eb796d23572" { // P14s Gen4 
 		if err := ts.powerOnLED(ctx, outputBuf); err != nil {
 			return err
 		}
@@ -223,7 +223,7 @@ func (ts *TestStep) powerOffSoft(ctx xcontext.Context, outputBuf *strings.Builde
 
 	// First check if device needs to be powered down
 	if ts.Parameter.ContextID == "db99f1e5-f438-418b-bfa4-30b72957ce33" || ts.Parameter.ContextID == "d6005a94-bfc8-4490-99dd-70a9c3cb5213" || // T14 Gen4 & T16 Gen2
-		ts.Parameter.ContextID == "b6c2023b-1c35-4633-95c1-3eb796d23572" || ts.Parameter.ContextID == "3d2702d5-8c04-4144-8455-44d80a6cbed3" { // P14s Gen4 & X13 Gen4 Yoga
+		ts.Parameter.ContextID == "b6c2023b-1c35-4633-95c1-3eb796d23572" { // P14s Gen4 
 		state, err = ts.getState(ctx, led)
 		if err != nil {
 			return err
