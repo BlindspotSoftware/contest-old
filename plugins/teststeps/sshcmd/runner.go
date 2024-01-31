@@ -68,7 +68,8 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 }
 
 func (ts *TestStep) runCMD(ctx xcontext.Context, outputBuf *strings.Builder, target *target.Target,
-	transport transport.Transport) error {
+	transport transport.Transport,
+) error {
 	proc, err := transport.NewProcess(ctx, ts.Bin.Executable, ts.Bin.Args, ts.Bin.WorkingDir)
 	if err != nil {
 		err := fmt.Errorf("Failed to create proc: %w", err)
@@ -107,6 +108,10 @@ func (ts *TestStep) runCMD(ctx xcontext.Context, outputBuf *strings.Builder, tar
 
 	outputBuf.WriteString(fmt.Sprintf("Command Stdout:\n%s\n", string(stdout)))
 	outputBuf.WriteString(fmt.Sprintf("Command Stderr:\n%s\n", string(stderr)))
+
+	if ts.inputStepParams.Bin.ReportOnly {
+		return nil
+	}
 
 	if outcome != nil {
 		return fmt.Errorf("Error executing command: %v.\n", outcome)

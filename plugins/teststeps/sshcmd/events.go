@@ -57,6 +57,7 @@ func writeTestStep(step *TestStep, builders ...*strings.Builder) {
 		builder.WriteString(fmt.Sprintf("    Executable: %s\n", step.Bin.Executable))
 		builder.WriteString(fmt.Sprintf("    Args: %v\n", step.Bin.Args))
 		builder.WriteString(fmt.Sprintf("    WorkingDir: %s\n", step.Bin.WorkingDir))
+		builder.WriteString(fmt.Sprintf("    ReportOnly: %t\n", step.Bin.ReportOnly))
 		builder.WriteString("\n")
 
 		builder.WriteString("  Transport:\n")

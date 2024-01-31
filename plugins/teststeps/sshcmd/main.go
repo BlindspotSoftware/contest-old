@@ -27,6 +27,7 @@ type inputStepParams struct {
 		Executable string   `json:"executable"`
 		Args       []string `json:"args"`
 		WorkingDir string   `json:"working_dir"`
+		ReportOnly bool   `json:"report_only"`
 		// TODO: add max execution timer
 	} `json:"binary"`
 
