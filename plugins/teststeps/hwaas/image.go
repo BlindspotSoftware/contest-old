@@ -120,7 +120,7 @@ func (ts *TestStep) postMountImage(ctx xcontext.Context) error {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to upload image. Statuscode: %d, Response Body: %v", resp.StatusCode, string(respBody))
+		return fmt.Errorf("failed to upload image. Statuscode: %d, Response Body: %s", resp.StatusCode, respBody)
 	}
 
 	return nil
@@ -263,7 +263,7 @@ func (ts *TestStep) configureUSB(ctx xcontext.Context) error {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("usb device could not be configured. Statuscode: %d, Response Body: %v", resp.StatusCode, string(body))
+		return fmt.Errorf("usb device could not be configured. Statuscode: %d, Response Body: %s. Tried to post Request to %s with body: %s", resp.StatusCode, body, endpoint, drivesBody)
 	}
 
 	return nil
