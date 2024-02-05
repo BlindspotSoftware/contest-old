@@ -30,6 +30,7 @@ type inputStepParams struct {
 		Host    string   `json:"host"`
 		Command string   `json:"command"`
 		Args    []string `json:"args,omitempty"`
+		UART    int      `json:"uart,omitempty"`
 		Input   string   `json:"input,omitempty"`
 	} `json:"parameter"`
 

@@ -62,7 +62,7 @@ func (r *TargetRunner) serial(ctx xcontext.Context, stdoutMsg, stderrMsg *string
 		return fmt.Errorf("Failed to init serial plugins: %v\n", err)
 	}
 
-	iface, err := dutInterface.GetSerial(0)
+	iface, err := dutInterface.GetSerial(r.ts.Parameter.UART)
 	if err != nil {
 		return fmt.Errorf("Failed to get serial: %v\n", err)
 	}
@@ -156,7 +156,6 @@ func (r *TargetRunner) writeMatches(stdoutMsg, stderrMsg *strings.Builder, seria
 			}
 		}
 	}
-
 }
 
 func (r *TargetRunner) writeSerial(stdoutMsg, stderrMsg *strings.Builder, serial []byte) {

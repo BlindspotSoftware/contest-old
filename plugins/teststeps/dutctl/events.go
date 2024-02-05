@@ -57,6 +57,11 @@ func writeTestStep(step *TestStep, builders ...*strings.Builder) {
 		builder.WriteString(fmt.Sprintf("    Host: %s\n", step.Parameter.Host))
 		builder.WriteString(fmt.Sprintf("    Command: %s\n", step.Parameter.Command))
 		builder.WriteString(fmt.Sprintf("    Args: %s\n", step.Parameter.Args))
+
+		if step.Parameter.Command == "serial" {
+			builder.WriteString(fmt.Sprintf("    UART: %d\n", step.Parameter.UART))
+		}
+
 		builder.WriteString(fmt.Sprintf("    Input: %s\n", step.Parameter.Input))
 		builder.WriteString("\n")
 
