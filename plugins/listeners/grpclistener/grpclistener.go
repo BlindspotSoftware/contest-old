@@ -99,7 +99,7 @@ func (s *GRPCServer) StartJob(ctx context.Context, req *connect.Request[contestl
 
 		return connect.NewResponse(&contestlistener.StartJobResponse{
 			JobId: 0,
-			Error: "Job is nil",
+			Error: "Requestor is not set",
 		}), fmt.Errorf("Requestor is not set")
 	}
 
@@ -108,6 +108,12 @@ func (s *GRPCServer) StartJob(ctx context.Context, req *connect.Request[contestl
 		return connect.NewResponse(&contestlistener.StartJobResponse{
 			JobId: 0,
 			Error: err.Error(),
+		}), err
+	}
+	if resp.Err != nil {
+		return connect.NewResponse(&contestlistener.StartJobResponse{
+			JobId: 0,
+			Error: resp.Err.Error(),
 		}), err
 	}
 
