@@ -3,6 +3,7 @@ package secureboot
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event"
@@ -15,6 +16,10 @@ import (
 const (
 	in  = "input"
 	out = "expect"
+)
+
+const (
+	defaultTimeout = time.Minute
 )
 
 type inputStepParams struct {
