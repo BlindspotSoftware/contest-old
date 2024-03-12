@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/test"
@@ -46,12 +47,14 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	var outputBuf strings.Builder
 
 	// limit the execution time if specified
-	timeout := r.ts.Options.Timeout
-	if timeout != 0 {
-		var cancel xcontext.CancelFunc
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(timeout))
-		defer cancel()
+	var cancel xcontext.CancelFunc
+
+	if r.ts.Options.Timeout == 0 {
+		r.ts.Options.Timeout = xjson.Duration(defaultTimeout)
 	}
+
+	ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
+	defer cancel()
 
 	pe := test.NewParamExpander(target)
 
