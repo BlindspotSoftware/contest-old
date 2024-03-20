@@ -54,7 +54,7 @@ func (ts *TestStep) validateAndPopulate(stepParams test.TestStepParameters) erro
 	var input *test.Param
 
 	if input = stepParams.GetOne(in); input.IsEmpty() {
-		return fmt.Errorf("input parameter cannot be empty")
+		return nil
 	}
 
 	if err := json.Unmarshal(input.JSON(), &ts.inputStepParams); err != nil {
