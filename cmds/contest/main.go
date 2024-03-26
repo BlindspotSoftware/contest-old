@@ -17,6 +17,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"net/http"
+	_ "net/http/pprof"
+
 	"github.com/linuxboot/contest/cmds/contest/server"
 )
 
@@ -24,6 +27,10 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	defer close(sigs)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGUSR1)
+	go func() {
+		http.ListenAndServe("localhost:8081", nil)
+	}()
+
 	if err := server.Main(os.Args[0], os.Args[1:], sigs); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
