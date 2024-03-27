@@ -87,6 +87,9 @@ func (r *TargetRunner) serial(ctx xcontext.Context, stdoutMsg, stderrMsg *string
 			defer func() {
 				iface.Close()
 			}()
+
+			retryCount := 0
+
 			for {
 				select {
 				case <-ctx.Done():
@@ -95,7 +98,16 @@ func (r *TargetRunner) serial(ctx xcontext.Context, stdoutMsg, stderrMsg *string
 				default:
 					_, err = io.Copy(dst, iface)
 					if err != nil {
+						retryCount++
 						stderrMsg.WriteString(fmt.Sprintf("Failed to copy data from serial to output: %v.\n", err))
+
+						if retryCount >= 5 {
+							stderrMsg.WriteString("Terminating after 5 failed retries.\n")
+							return
+						}
+					} else {
+
+						retryCount = 0
 					}
 				}
 			}
