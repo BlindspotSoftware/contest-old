@@ -29,7 +29,6 @@ import (
 	"github.com/linuxboot/contest/plugins/teststeps/cmd"
 	"github.com/linuxboot/contest/plugins/teststeps/echo"
 	"github.com/linuxboot/contest/plugins/teststeps/example"
-	"github.com/linuxboot/contest/plugins/teststeps/exec"
 	"github.com/linuxboot/contest/tests/plugins/teststeps/channels"
 	"github.com/linuxboot/contest/tests/plugins/teststeps/crash"
 	"github.com/linuxboot/contest/tests/plugins/teststeps/fail"
@@ -57,7 +56,6 @@ var testSteps = map[string]test.TestStepFactory{
 	hanging.Name:   hanging.New,
 	channels.Name:  channels.New,
 	cmd.Name:       cmd.New,
-	exec.Name:      exec.New,
 	crash.Name:     crash.New,
 	fail.Name:      fail.New,
 }
@@ -70,7 +68,6 @@ var testStepsEvents = map[string][]event.Name{
 	hanging.Name:   hanging.Events,
 	channels.Name:  channels.Events,
 	cmd.Name:       cmd.Events,
-	exec.Name:      exec.Events,
 	crash.Name:     crash.Events,
 	fail.Name:      fail.Events,
 }
@@ -112,7 +109,6 @@ func TestMain(m *testing.M) {
 }
 
 func TestSuccessfulCompletion(t *testing.T) {
-
 	jobID := types.JobID(1)
 	runID := types.RunID(1)
 
