@@ -1,4 +1,4 @@
-package sshcmd
+package cmd
 
 import (
 	"bytes"
@@ -6,14 +6,18 @@ import (
 	"io"
 	"regexp"
 	"strings"
-	"time"
 
-	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
 	"github.com/linuxboot/contest/plugins/teststeps/abstraction/transport"
+)
+
+const (
+	ssh   = "ssh"
+	local = "local"
 )
 
 type TargetRunner struct {
@@ -31,34 +35,22 @@ func NewTargetRunner(ts *TestStep, ev testevent.Emitter) *TargetRunner {
 func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	var outputBuf strings.Builder
 
-	// limit the execution time if specified
-	var cancel xcontext.CancelFunc
-
-	if r.ts.Options.Timeout != 0 {
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
-		defer cancel()
-	} else {
-		r.ts.Options.Timeout = xjson.Duration(defaultTimeout)
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
-		defer cancel()
-	}
+	ctx, cancel := options.NewOptions(ctx, defaultTimeout, r.ts.options.Timeout)
+	defer cancel()
 
 	pe := test.NewParamExpander(target)
 
-	var params inputStepParams
+	r.ts.writeTestStep(&outputBuf)
 
-	if err := pe.ExpandObject(r.ts.inputStepParams, &params); err != nil {
-		return err
-	}
-
-	transport, err := transport.NewTransport(params.Transport.Proto, params.Transport.Options, pe)
+	transportProto, err := transport.NewTransport(r.ts.transport.Proto, []string{ssh, local}, r.ts.transport.Options, pe)
 	if err != nil {
-		return fmt.Errorf("failed to create transport: %w", err)
+		err := fmt.Errorf("failed to create transport: %w", err)
+		outputBuf.WriteString(fmt.Sprintf("%v", err))
+
+		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
-	writeTestStep(r.ts, &outputBuf)
-
-	if err := r.ts.runCMD(ctx, &outputBuf, target, transport); err != nil {
+	if err := r.ts.runCMD(ctx, &outputBuf, transportProto); err != nil {
 		outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
@@ -67,10 +59,9 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	return emitStdout(ctx, outputBuf.String(), target, r.ev)
 }
 
-func (ts *TestStep) runCMD(ctx xcontext.Context, outputBuf *strings.Builder, target *target.Target,
-	transport transport.Transport,
+func (ts *TestStep) runCMD(ctx xcontext.Context, outputBuf *strings.Builder, transport transport.Transport,
 ) error {
-	proc, err := transport.NewProcess(ctx, ts.Bin.Executable, ts.Bin.Args, ts.Bin.WorkingDir)
+	proc, err := transport.NewProcess(ctx, ts.Executable, ts.Args, ts.WorkingDir)
 	if err != nil {
 		err := fmt.Errorf("Failed to create proc: %w", err)
 		outputBuf.WriteString(fmt.Sprintf("%v\n", err))
@@ -109,7 +100,7 @@ func (ts *TestStep) runCMD(ctx xcontext.Context, outputBuf *strings.Builder, tar
 	outputBuf.WriteString(fmt.Sprintf("Command Stdout:\n%s\n", string(stdout)))
 	outputBuf.WriteString(fmt.Sprintf("Command Stderr:\n%s\n", string(stderr)))
 
-	if ts.inputStepParams.Bin.ReportOnly {
+	if ts.ReportOnly {
 		return nil
 	}
 
@@ -155,7 +146,7 @@ func readBuffer(r io.Reader) ([]byte, error) {
 func (ts *TestStep) parseOutput(outputBuf *strings.Builder, stdout []byte) error {
 	var errorString string
 
-	for index, expect := range ts.expectStepParams {
+	for index, expect := range ts.Expect {
 		re, err := regexp.Compile(expect.Regex)
 		if err != nil {
 			errorString += fmt.Sprintf("Failed to parse the regex for 'Expect%d': %v", index+1, err)
