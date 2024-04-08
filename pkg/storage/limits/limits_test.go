@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
-
 	"testing"
 	"time"
 
@@ -26,7 +25,6 @@ import (
 	"github.com/linuxboot/contest/plugins/reporters/noop"
 	"github.com/linuxboot/contest/plugins/targetmanagers/targetlist"
 	"github.com/linuxboot/contest/plugins/testfetchers/literal"
-	"github.com/linuxboot/contest/plugins/teststeps/echo"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,9 +33,7 @@ import (
 // This tests are bad, because they touche so may things which are not related to storage limitations and
 // depend on order of checks in validation code, but this is the price of having them all in one package
 
-var (
-	ctx = logrusctx.NewContext(logger.LevelDebug)
-)
+var ctx = logrusctx.NewContext(logger.LevelDebug)
 
 func TestServerID(t *testing.T) {
 	_, err := api.New(api.OptionServerID(strings.Repeat("A", limits.MaxServerIDLen+1)))
@@ -84,6 +80,7 @@ func TestReporterName(t *testing.T) {
 	_, err = jobmanager.NewJobFromJSONDescriptor(ctx, &pluginregistry.PluginRegistry{}, string(jsonJd))
 	assertLenError(t, "Reporter name", err)
 }
+
 func TestTestName(t *testing.T) {
 	pluginRegistry := pluginregistry.NewPluginRegistry(ctx)
 	err := pluginRegistry.RegisterTargetManager(targetlist.Load())
@@ -91,8 +88,6 @@ func TestTestName(t *testing.T) {
 	err = pluginRegistry.RegisterTestFetcher(literal.Load())
 	require.NoError(t, err)
 	err = pluginRegistry.RegisterReporter(noop.Load())
-	require.NoError(t, err)
-	err = pluginRegistry.RegisterTestStep(echo.Load())
 	require.NoError(t, err)
 
 	testFetchParams, err := json.Marshal(&literal.FetchParameters{

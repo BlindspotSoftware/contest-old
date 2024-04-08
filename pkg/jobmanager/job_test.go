@@ -10,13 +10,11 @@ import (
 	"github.com/linuxboot/contest/plugins/reporters/noop"
 	"github.com/linuxboot/contest/plugins/targetmanagers/targetlist"
 	"github.com/linuxboot/contest/plugins/testfetchers/literal"
-	"github.com/linuxboot/contest/plugins/teststeps/echo"
 	"github.com/stretchr/testify/require"
 )
 
 func TestDisabledTestDescriptor(t *testing.T) {
 	pr := pluginregistry.NewPluginRegistry(xcontext.Background())
-	require.NoError(t, pr.RegisterTestStep(echo.Load()))
 	require.NoError(t, pr.RegisterTargetManager(targetlist.Load()))
 	require.NoError(t, pr.RegisterTestFetcher(literal.Load()))
 	require.NoError(t, pr.RegisterReporter(noop.Load()))
