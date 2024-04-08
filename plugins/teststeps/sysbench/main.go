@@ -5,43 +5,33 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
 	"github.com/linuxboot/contest/plugins/teststeps"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/transport"
+)
+
+const (
+	parametersKeyword = "parameters"
 )
 
 // We need a default timeout to avoid endless running tests.
 const (
 	defaultTimeout = time.Minute
-	in             = "input"
-	exp            = "expect"
 )
 
-var (
-	defaultArgs = []string{"cpu", "run"}
-)
+var defaultArgs = []string{"cpu", "run"}
 
-type inputStepParams struct {
-	Transport struct {
-		Proto   string          `json:"proto"`
-		Options json.RawMessage `json:"options,omitempty"`
-	} `json:"transport,omitempty"`
+type parameters struct {
+	Args []string `json:"args"`
 
-	Parameter struct {
-		Args []string `json:"args"`
-	} `json:"parameter"`
-
-	Options struct {
-		Timeout xjson.Duration `json:"timeout,omitempty"`
-	} `json:"options,omitempty"`
-}
-
-type Expect struct {
-	Option string `json:"option"`
-	Value  string `json:"value"`
+	Expect []struct {
+		Option string `json:"option"`
+		Value  string `json:"value"`
+	}
 }
 
 // Name is the name used to look this plugin up.
@@ -49,57 +39,48 @@ var Name = "Sysbench"
 
 // TestStep implementation for this teststep plugin
 type TestStep struct {
-	inputStepParams
-	expectStepParams []Expect
+	parameters
+	transport transport.Parameters
+	options   options.Parameters
 }
 
 // Run executes the cmd step.
 func (ts *TestStep) Run(ctx xcontext.Context, ch test.TestStepChannels, params test.TestStepParameters, ev testevent.Emitter, resumeState json.RawMessage) (json.RawMessage, error) {
-	// Validate the parameter
-	if err := ts.validateAndPopulate(params); err != nil {
-		return nil, err
-	}
-
 	tr := NewTargetRunner(ts, ev)
 	return teststeps.ForEachTarget(Name, ctx, ch, tr.Run)
 }
 
-func (ts *TestStep) validateAndPopulate(stepParams test.TestStepParameters) error {
-	var (
-		input        *test.Param
-		tmp          Expect
-		expectParams []Expect
-	)
+func (ts *TestStep) populateParams(stepParams test.TestStepParameters) error {
+	var parameters, transportParams, optionsParams *test.Param
 
-	if input = stepParams.GetOne(in); input.IsEmpty() {
-		return fmt.Errorf("input parameter cannot be empty")
+	if parameters = stepParams.GetOne(parametersKeyword); parameters.IsEmpty() {
+		return fmt.Errorf("parameters cannot be empty")
 	}
 
-	if err := json.Unmarshal(input.JSON(), &ts.inputStepParams); err != nil {
-		return fmt.Errorf("failed to deserialize %q parameters: %v", in, err)
+	if err := json.Unmarshal(parameters.JSON(), &ts.parameters); err != nil {
+		return fmt.Errorf("failed to deserialize parameters: %v", err)
 	}
 
-	expect := stepParams.Get(exp)
-	if len(expect) == 0 {
-		return fmt.Errorf("expect parameter cannot be empty")
+	if transportParams = stepParams.GetOne(transport.Keyword); transportParams.IsEmpty() {
+		return fmt.Errorf("transport cannot be empty")
 	}
 
-	for _, item := range expect {
-		if err := json.Unmarshal(item.JSON(), &tmp); err != nil {
-			return fmt.Errorf("failed to deserialize %q parameter: %v", exp, err)
-		}
-
-		expectParams = append(expectParams, tmp)
+	if err := json.Unmarshal(transportParams.JSON(), &ts.transport); err != nil {
+		return fmt.Errorf("failed to deserialize transport: %v", err)
 	}
 
-	ts.expectStepParams = expectParams
+	optionsParams = stepParams.GetOne(options.Keyword)
+
+	if err := json.Unmarshal(optionsParams.JSON(), &ts.options); err != nil {
+		return fmt.Errorf("failed to deserialize options: %v", err)
+	}
 
 	return nil
 }
 
 // ValidateParameters validates the parameters associated to the TestStep
 func (ts *TestStep) ValidateParameters(_ xcontext.Context, params test.TestStepParameters) error {
-	return ts.validateAndPopulate(params)
+	return ts.populateParams(params)
 }
 
 // New initializes and returns a new HWaaS test step.
