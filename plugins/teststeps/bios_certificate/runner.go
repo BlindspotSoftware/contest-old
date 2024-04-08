@@ -7,13 +7,12 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
-	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
 	"github.com/linuxboot/contest/plugins/teststeps/abstraction/transport"
 )
 
@@ -43,36 +42,14 @@ func NewTargetRunner(ts *TestStep, ev testevent.Emitter) *TargetRunner {
 func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	var outputBuf strings.Builder
 
-	// limit the execution time if specified
-	var cancel xcontext.CancelFunc
-
-	if r.ts.Options.Timeout == 0 {
-		r.ts.Options.Timeout = xjson.Duration(defaultTimeout)
-	}
-
-	ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
+	ctx, cancel := options.NewOptions(ctx, defaultTimeout, r.ts.options.Timeout)
 	defer cancel()
 
 	pe := test.NewParamExpander(target)
 
-	var params inputStepParams
-	if err := pe.ExpandObject(r.ts.inputStepParams, &params); err != nil {
-		err := fmt.Errorf("failed to expand input parameter: %v", err)
-		outputBuf.WriteString(fmt.Sprintf("%v", err))
+	r.ts.writeTestStep(&outputBuf)
 
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
-	}
-
-	writeTestStep(r.ts, &outputBuf, &outputBuf)
-
-	if params.Transport.Proto != supportedProto {
-		err := fmt.Errorf("only %q is supported as protocol in this teststep", supportedProto)
-		outputBuf.WriteString(fmt.Sprintf("%v", err))
-
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
-	}
-
-	transportProto, err := transport.NewTransport(params.Transport.Proto, params.Transport.Options, pe)
+	transportProto, err := transport.NewTransport(r.ts.transport.Proto, []string{supportedProto}, r.ts.transport.Options, pe)
 	if err != nil {
 		err := fmt.Errorf("failed to create transport: %w", err)
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
@@ -80,7 +57,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
-	switch params.Command {
+	switch r.ts.Command {
 	case "enable":
 		if err := r.ts.runEnable(ctx, &outputBuf, transportProto); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v", err))
@@ -122,16 +99,16 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 func (ts *TestStep) runEnable(
 	ctx xcontext.Context, outputBuf *strings.Builder, transport transport.Transport,
 ) error {
-	if ts.Parameter.Password == "" || ts.Parameter.CertPath == "" {
+	if ts.Password == "" || ts.CertPath == "" {
 		return fmt.Errorf("password and certificate file must be set")
 	}
 
 	args := []string{
-		ts.Parameter.ToolPath,
+		ts.ToolPath,
 		cmd,
 		"enable",
-		fmt.Sprintf("--password=%s", ts.Parameter.Password),
-		fmt.Sprintf("--cert=%s", ts.Parameter.CertPath),
+		fmt.Sprintf("--password=%s", ts.Password),
+		fmt.Sprintf("--cert=%s", ts.CertPath),
 		jsonFlag,
 	}
 
@@ -173,7 +150,7 @@ func (ts *TestStep) runEnable(
 	}
 
 	err = parseOutput(outputBuf, stderr)
-	if ts.ShouldFail && err != nil {
+	if ts.Expect.ShouldFail && err != nil {
 		return nil
 	}
 
@@ -183,16 +160,16 @@ func (ts *TestStep) runEnable(
 func (ts *TestStep) runUpdate(
 	ctx xcontext.Context, outputBuf *strings.Builder, transport transport.Transport,
 ) error {
-	if ts.Parameter.CertPath == "" || ts.Parameter.KeyPath == "" {
+	if ts.CertPath == "" || ts.KeyPath == "" {
 		return fmt.Errorf("new certificate and old private key file must be set")
 	}
 
 	args := []string{
-		ts.Parameter.ToolPath,
+		ts.ToolPath,
 		cmd,
 		"update",
-		fmt.Sprintf("--private-key=%s", ts.Parameter.KeyPath),
-		fmt.Sprintf("--cert=%s", ts.Parameter.CertPath),
+		fmt.Sprintf("--private-key=%s", ts.KeyPath),
+		fmt.Sprintf("--cert=%s", ts.CertPath),
 		jsonFlag,
 	}
 
@@ -234,7 +211,7 @@ func (ts *TestStep) runUpdate(
 	}
 
 	err = parseOutput(outputBuf, stderr)
-	if ts.ShouldFail && err != nil {
+	if ts.Expect.ShouldFail && err != nil {
 		return nil
 	}
 
@@ -244,16 +221,16 @@ func (ts *TestStep) runUpdate(
 func (ts *TestStep) runDisable(
 	ctx xcontext.Context, outputBuf *strings.Builder, transport transport.Transport,
 ) error {
-	if ts.Parameter.Password == "" || ts.Parameter.KeyPath == "" {
+	if ts.Password == "" || ts.KeyPath == "" {
 		return fmt.Errorf("password and private key file must be set")
 	}
 
 	args := []string{
-		ts.Parameter.ToolPath,
+		ts.ToolPath,
 		cmd,
 		"disable",
-		fmt.Sprintf("--password=%s", ts.Parameter.Password),
-		fmt.Sprintf("--private-key=%s", ts.Parameter.KeyPath),
+		fmt.Sprintf("--password=%s", ts.Password),
+		fmt.Sprintf("--private-key=%s", ts.KeyPath),
 		jsonFlag,
 	}
 
@@ -295,7 +272,7 @@ func (ts *TestStep) runDisable(
 	}
 
 	err = parseOutput(outputBuf, stderr)
-	if ts.ShouldFail && err != nil {
+	if ts.Expect.ShouldFail && err != nil {
 		return nil
 	}
 
@@ -305,15 +282,15 @@ func (ts *TestStep) runDisable(
 func (ts *TestStep) runCheck(
 	ctx xcontext.Context, outputBuf *strings.Builder, transport transport.Transport,
 ) error {
-	if ts.Parameter.CertPath == "" {
+	if ts.CertPath == "" {
 		return fmt.Errorf("certificate file must be set for the comparison")
 	}
 
 	args := []string{
-		ts.Parameter.ToolPath,
+		ts.ToolPath,
 		cmd,
 		"check",
-		fmt.Sprintf("--cert=%s", ts.Parameter.CertPath),
+		fmt.Sprintf("--cert=%s", ts.CertPath),
 	}
 
 	proc, err := transport.NewProcess(ctx, privileged, args, "")
@@ -354,7 +331,7 @@ func (ts *TestStep) runCheck(
 	}
 
 	err = parseOutput(outputBuf, stderr)
-	if ts.ShouldFail && err != nil {
+	if ts.Expect.ShouldFail && err != nil {
 		return nil
 	}
 
