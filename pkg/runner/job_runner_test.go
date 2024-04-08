@@ -25,7 +25,6 @@ import (
 	"github.com/linuxboot/contest/pkg/xcontext/logger"
 	"github.com/linuxboot/contest/plugins/targetmanagers/targetlist"
 	"github.com/linuxboot/contest/plugins/teststeps"
-	"github.com/linuxboot/contest/plugins/teststeps/echo"
 )
 
 type JobRunnerSuite struct {
@@ -43,9 +42,7 @@ func (s *JobRunnerSuite) SetupTest() {
 		name    string
 		factory test.TestStepFactory
 		events  []event.Name
-	}{
-		{echo.Name, echo.New, echo.Events},
-	} {
+	}{} {
 		require.NoError(s.T(), s.PluginRegistry.RegisterTestStep(e.name, e.factory, e.events))
 	}
 }
@@ -173,13 +170,7 @@ func (s *JobRunnerSuite) TestJobWithTestRetry() {
 					TargetManager:     targetlist.New(),
 				},
 				TestStepsBundles: []test.TestStepBundle{
-					s.NewStep(ctx, "echo1_step_label", echo.Name, map[string][]test.Param{
-						"text": {*test.NewParam("hello")},
-					}),
 					s.NewStep(ctx, "test_step_label", stateFullStepName, nil),
-					s.NewStep(ctx, "echo2_step_label", echo.Name, map[string][]test.Param{
-						"text": {*test.NewParam("world")},
-					}),
 				},
 			},
 		},
@@ -277,11 +268,7 @@ func (s *JobRunnerSuite) TestJobRetryOnFailedAcquire() {
 				TargetManagerBundle: &target.TargetManagerBundle{
 					TargetManager: tm,
 				},
-				TestStepsBundles: []test.TestStepBundle{
-					s.NewStep(ctx, "echo1_step_label", echo.Name, map[string][]test.Param{
-						"text": {*test.NewParam("hello")},
-					}),
-				},
+				TestStepsBundles: []test.TestStepBundle{},
 			},
 		},
 	}
@@ -356,11 +343,7 @@ func (s *JobRunnerSuite) TestAcquireFailed() {
 				TargetManagerBundle: &target.TargetManagerBundle{
 					TargetManager: tm,
 				},
-				TestStepsBundles: []test.TestStepBundle{
-					s.NewStep(ctx, "echo1_step_label", echo.Name, map[string][]test.Param{
-						"text": {*test.NewParam("hello")},
-					}),
-				},
+				TestStepsBundles: []test.TestStepBundle{},
 			},
 		},
 	}
@@ -426,11 +409,7 @@ func (s *JobRunnerSuite) TestResumeStateBadJobId() {
 					AcquireParameters: acquireParameters,
 					TargetManager:     targetlist.New(),
 				},
-				TestStepsBundles: []test.TestStepBundle{
-					s.NewStep(ctx, "echo1_step_label", echo.Name, map[string][]test.Param{
-						"text": {*test.NewParam("hello")},
-					}),
-				},
+				TestStepsBundles: []test.TestStepBundle{},
 			},
 		},
 	}
