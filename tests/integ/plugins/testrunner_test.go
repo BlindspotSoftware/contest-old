@@ -27,7 +27,6 @@ import (
 	"github.com/linuxboot/contest/pkg/xcontext/logger"
 	"github.com/linuxboot/contest/plugins/storage/memory"
 	"github.com/linuxboot/contest/plugins/teststeps/cmd"
-	"github.com/linuxboot/contest/plugins/teststeps/example"
 	"github.com/linuxboot/contest/tests/plugins/teststeps/channels"
 	"github.com/linuxboot/contest/tests/plugins/teststeps/crash"
 	"github.com/linuxboot/contest/tests/plugins/teststeps/fail"
@@ -48,7 +47,6 @@ var (
 )
 
 var testSteps = map[string]test.TestStepFactory{
-	example.Name:   example.New,
 	panicstep.Name: panicstep.New,
 	noreturn.Name:  noreturn.New,
 	hanging.Name:   hanging.New,
@@ -59,7 +57,6 @@ var testSteps = map[string]test.TestStepFactory{
 }
 
 var testStepsEvents = map[string][]event.Name{
-	example.Name:   example.Events,
 	panicstep.Name: panicstep.Events,
 	noreturn.Name:  noreturn.Events,
 	hanging.Name:   hanging.Events,
