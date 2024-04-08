@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
 	"github.com/linuxboot/contest/plugins/teststeps/abstraction/transport"
 	"github.com/linuxboot/contest/plugins/teststeps/cpu"
 )
@@ -40,36 +40,14 @@ func NewTargetRunner(ts *TestStep, ev testevent.Emitter) *TargetRunner {
 func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	var outputBuf strings.Builder
 
-	// limit the execution time if specified
-	var cancel xcontext.CancelFunc
-
-	if r.ts.Options.Timeout != 0 {
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
-		defer cancel()
-	} else {
-		r.ts.Options.Timeout = xjson.Duration(defaultTimeout)
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
-		defer cancel()
-	}
+	ctx, cancel := options.NewOptions(ctx, defaultTimeout, r.ts.options.Timeout)
+	defer cancel()
 
 	pe := test.NewParamExpander(target)
 
-	if r.ts.Transport.Proto != supportedProto {
-		err := fmt.Errorf("only '%s' is supported as protocol in this teststep", supportedProto)
-		outputBuf.WriteString(fmt.Sprintf("%v", err))
-
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
-	}
-
-	if r.ts.Parameter.Duration != "" {
-		if _, err := time.ParseDuration(r.ts.Parameter.Duration); err != nil {
-			return fmt.Errorf("wrong interval statement, valid units are ns, us, ms, s, m and h")
-		}
-	}
-
 	r.ts.writeTestStep(&outputBuf)
 
-	transport, err := transport.NewTransport(r.ts.Transport.Proto, r.ts.Transport.Options, pe)
+	transportProto, err := transport.NewTransport(r.ts.transport.Proto, []string{supportedProto}, r.ts.transport.Options, pe)
 	if err != nil {
 		err := fmt.Errorf("failed to create transport: %w", err)
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
@@ -77,7 +55,13 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
-	if err := r.ts.runLoad(ctx, &outputBuf, transport); err != nil {
+	if r.ts.Duration != "" {
+		if _, err := time.ParseDuration(r.ts.Duration); err != nil {
+			return fmt.Errorf("wrong interval statement, valid units are ns, us, ms, s, m and h")
+		}
+	}
+
+	if err := r.ts.runLoad(ctx, &outputBuf, transportProto); err != nil {
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
@@ -86,20 +70,20 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 
 func (ts *TestStep) runLoad(ctx xcontext.Context, outputBuf *strings.Builder, transport transport.Transport,
 ) error {
-	var (
-		args []string
-	)
+	var args []string
 
-	if len(ts.Parameter.Args) > 0 {
-		args = append([]string{"stress-ng", "--cpu $(nproc)"}, ts.Parameter.Args...)
-		args = append(args, fmt.Sprintf("--timeout %s", ts.Parameter.Duration), "&")
+	if len(ts.Args) > 0 {
+		args = append([]string{"stress-ng", "--cpu $(nproc)"}, ts.Args...)
+		args = append(args, fmt.Sprintf("--timeout %s", ts.Duration), "&")
 	} else {
-		if len(ts.Parameter.CPUs) == 0 {
-			args = []string{"stress-ng", "--cpu $(nproc)", "--cpu-load 100", fmt.Sprintf("--timeout %s", ts.Parameter.Duration), "&"}
+		if len(ts.CPUs) == 0 {
+			args = []string{"stress-ng", "--cpu $(nproc)", "--cpu-load 100", fmt.Sprintf("--timeout %s", ts.Duration), "&"}
 		} else {
-			for _, core := range ts.Parameter.CPUs {
-				args = append(args, []string{fmt.Sprintf("taskset -c %d", core), "stress-ng", "--cpu 1", "--cpu-load 100",
-					fmt.Sprintf("--timeout %s", ts.Parameter.Duration), "&"}...)
+			for _, core := range ts.CPUs {
+				args = append(args, []string{
+					fmt.Sprintf("taskset -c %d", core), "stress-ng", "--cpu 1", "--cpu-load 100",
+					fmt.Sprintf("--timeout %s", ts.Duration), "&",
+				}...)
 			}
 		}
 	}
@@ -129,7 +113,7 @@ func (ts *TestStep) runLoad(ctx xcontext.Context, outputBuf *strings.Builder, tr
 		return fmt.Errorf("Failed to run load test: %v.", outcome)
 	}
 
-	if len(ts.Individual) > 0 || len(ts.General) > 0 {
+	if len(ts.Expect.Individual) > 0 || len(ts.Expect.General) > 0 {
 		if err := ts.parseStats(ctx, outputBuf, transport); err != nil {
 			return fmt.Errorf("Failed to parse cpu stats: %v.", err)
 		}
@@ -149,7 +133,7 @@ func (ts *TestStep) runLoad(ctx xcontext.Context, outputBuf *strings.Builder, tr
 }
 
 func (ts *TestStep) parseStats(ctx xcontext.Context, outputBuf *strings.Builder, transport transport.Transport) error {
-	duration, err := time.ParseDuration(ts.Parameter.Duration)
+	duration, err := time.ParseDuration(ts.Duration)
 	if err != nil {
 		return fmt.Errorf("wrong interval statement, valid units are ns, us, ms, s, m and h")
 	}
@@ -162,7 +146,7 @@ func (ts *TestStep) parseStats(ctx xcontext.Context, outputBuf *strings.Builder,
 	time.Sleep(offset)
 
 	args := []string{
-		ts.Parameter.ToolPath,
+		ts.ToolPath,
 		cmd,
 		argument,
 		fmt.Sprintf("--interval=%s", interval.String()),
@@ -256,14 +240,14 @@ func (ts *TestStep) parseOutput(ctx xcontext.Context, outputBuf *strings.Builder
 		}
 	}
 
-	for _, expect := range ts.expectStepParams.General {
+	for _, expect := range ts.Expect.General {
 		if err := stats.CheckGeneralOption(expect, outputBuf); err != nil {
 			errorString += fmt.Sprintf("failed to check general option '%s': %v\n", expect.Option, err)
 			finalError = true
 		}
 	}
 
-	for _, expect := range ts.expectStepParams.Individual {
+	for _, expect := range ts.Expect.Individual {
 		if err := stats.CheckIndividualOption(expect, true, outputBuf); err != nil {
 			errorString += fmt.Sprintf("failed to check individual option '%s': %v\n", expect.Option, err)
 			finalError = true
