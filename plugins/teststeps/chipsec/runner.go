@@ -7,13 +7,12 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
 	"github.com/linuxboot/contest/plugins/teststeps/abstraction/transport"
 )
 
@@ -46,39 +45,14 @@ func NewTargetRunner(ts *TestStep, ev testevent.Emitter) *TargetRunner {
 func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	var outputBuf strings.Builder
 
-	// limit the execution time if specified
-	var cancel xcontext.CancelFunc
-
-	if r.ts.Options.Timeout != 0 {
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
-		defer cancel()
-	} else {
-		r.ts.Options.Timeout = xjson.Duration(defaultTimeout)
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
-		defer cancel()
-	}
+	ctx, cancel := options.NewOptions(ctx, defaultTimeout, r.ts.options.Timeout)
+	defer cancel()
 
 	pe := test.NewParamExpander(target)
 
-	var params inputStepParams
+	r.ts.writeTestStep(&outputBuf)
 
-	if err := pe.ExpandObject(r.ts.inputStepParams, &params); err != nil {
-		err := fmt.Errorf("failed to expand input parameter: %v", err)
-		outputBuf.WriteString(fmt.Sprintf("%v", err))
-
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
-	}
-
-	writeTestStep(r.ts, &outputBuf)
-
-	if params.Transport.Proto != supportedProto {
-		err := fmt.Errorf("only %q is supported as protocol in this teststep", supportedProto)
-		outputBuf.WriteString(fmt.Sprintf("%v", err))
-
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
-	}
-
-	transport, err := transport.NewTransport(params.Transport.Proto, params.Transport.Options, pe)
+	transportProto, err := transport.NewTransport(r.ts.transport.Proto, []string{supportedProto}, r.ts.transport.Options, pe)
 	if err != nil {
 		err := fmt.Errorf("failed to create transport: %w", err)
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
@@ -86,7 +60,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
-	if err := r.ts.runModule(ctx, &outputBuf, target, transport); err != nil {
+	if err := r.ts.runModule(ctx, &outputBuf, target, transportProto); err != nil {
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
 
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
@@ -104,29 +78,29 @@ func (ts *TestStep) runModule(ctx xcontext.Context, outputBuf *strings.Builder, 
 		finalErr error
 	)
 
-	for _, module := range ts.Parameter.Modules {
+	for _, module := range ts.Modules {
 		outputBuf.WriteString("\n\n\n\n")
 		outputBuf.WriteString(fmt.Sprintf("Running tests for chipsec module '%s' now.\n", module))
 
 		var optionalArgs []string
 
-		if ts.Parameter.Platform != "" {
-			optionalArgs = append(optionalArgs, "--platform", ts.Parameter.Platform)
+		if ts.Platform != "" {
+			optionalArgs = append(optionalArgs, "--platform", ts.Platform)
 		}
 
-		if ts.Parameter.PCH != "" {
-			optionalArgs = append(optionalArgs, "--pch", ts.Parameter.PCH)
+		if ts.PCH != "" {
+			optionalArgs = append(optionalArgs, "--pch", ts.PCH)
 		}
 
-		switch ts.Parameter.NixOS {
+		switch ts.NixOS {
 		case false:
 			args := []string{
 				cmd,
-				filepath.Join(ts.Parameter.ToolPath, bin),
+				filepath.Join(ts.ToolPath, bin),
 				"-m",
 				module,
 				jsonFlag,
-				filepath.Join(ts.Parameter.ToolPath, outputFile),
+				filepath.Join(ts.ToolPath, outputFile),
 			}
 
 			args = append(args, optionalArgs...)
@@ -140,7 +114,7 @@ func (ts *TestStep) runModule(ctx xcontext.Context, outputBuf *strings.Builder, 
 				"-m",
 				module,
 				jsonFlag,
-				filepath.Join(ts.Parameter.ToolPath, outputFile),
+				filepath.Join(ts.ToolPath, outputFile),
 			}
 
 			args = append(args, optionalArgs...)
@@ -222,7 +196,7 @@ func (ts *TestStep) parseOutput(ctx xcontext.Context, outputBuf *strings.Builder
 ) error {
 	args := []string{
 		"cat",
-		filepath.Join(ts.Parameter.ToolPath, outputFile),
+		filepath.Join(ts.ToolPath, outputFile),
 	}
 
 	proc, err := transport.NewProcess(ctx, privileged, args, "")

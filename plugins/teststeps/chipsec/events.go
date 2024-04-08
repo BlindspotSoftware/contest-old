@@ -50,10 +50,10 @@ func emitEvent(ctx xcontext.Context, name event.Name, payload interface{}, tgt *
 }
 
 // Function to format teststep information and append it to a string builder.
-func writeTestStep(step *TestStep, builders ...*strings.Builder) {
+func (ts TestStep) writeTestStep(builders ...*strings.Builder) {
 	for _, builder := range builders {
-		platform := step.inputStepParams.Parameter.Platform
-		pch := step.inputStepParams.Parameter.PCH
+		platform := ts.Platform
+		pch := ts.PCH
 
 		if platform == "" {
 			platform = "auto"
@@ -65,30 +65,30 @@ func writeTestStep(step *TestStep, builders ...*strings.Builder) {
 
 		builder.WriteString("Input Parameter:\n")
 		builder.WriteString("  Transport:\n")
-		builder.WriteString(fmt.Sprintf("    Protocol: %s\n", step.Transport.Proto))
+		builder.WriteString(fmt.Sprintf("    Protocol: %s\n", ts.transport.Proto))
 		builder.WriteString("    Options: \n")
-		optionsJSON, err := json.MarshalIndent(step.Transport.Options, "", "    ")
+		optionsJSON, err := json.MarshalIndent(ts.transport.Options, "", "    ")
 		if err != nil {
-			builder.WriteString(fmt.Sprintf("%v\n", step.Transport.Options))
+			builder.WriteString(fmt.Sprintf("%v\n", ts.transport.Options))
 		} else {
 			builder.WriteString(string(optionsJSON))
 		}
 		builder.WriteString("\n")
 
 		builder.WriteString("  Parameter:\n")
-		builder.WriteString(fmt.Sprintf("    ToolPath: %s\n", step.Parameter.ToolPath))
-		builder.WriteString(fmt.Sprintf("    NixOS: %t\n", step.Parameter.NixOS))
+		builder.WriteString(fmt.Sprintf("    ToolPath: %s\n", ts.ToolPath))
+		builder.WriteString(fmt.Sprintf("    NixOS: %t\n", ts.NixOS))
 		builder.WriteString(fmt.Sprintf("    Platform: %s\n", platform))
 		builder.WriteString(fmt.Sprintf("    PCH: %s\n", pch))
 
 		builder.WriteString("    Modules:\n")
-		for i, module := range step.Parameter.Modules {
+		for i, module := range ts.Modules {
 			builder.WriteString(fmt.Sprintf("      Module %d: %s\n", i+1, module))
 		}
 		builder.WriteString("\n")
 
 		builder.WriteString("  Options:\n")
-		builder.WriteString(fmt.Sprintf("    Timeout: %s\n", time.Duration(step.Options.Timeout)))
+		builder.WriteString(fmt.Sprintf("    Timeout: %s\n", time.Duration(ts.options.Timeout)))
 		builder.WriteString("\n")
 
 		builder.WriteString("Default Values:\n")
