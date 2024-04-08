@@ -7,23 +7,22 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
 	"github.com/linuxboot/contest/plugins/teststeps/abstraction/transport"
 )
 
 const (
-	supportedProto = "ssh"
-	privileged     = "sudo"
-	sysbench       = "sysbench"
-	cmd            = "cpu"
-	argument       = "stats"
-	jsonFlag       = "--json"
+	ssh        = "ssh"
+	privileged = "sudo"
+	sysbench   = "sysbench"
+	cmd        = "cpu"
+	argument   = "stats"
+	jsonFlag   = "--json"
 )
 
 type Output struct {
@@ -45,34 +44,18 @@ func NewTargetRunner(ts *TestStep, ev testevent.Emitter) *TargetRunner {
 func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	var outputBuf strings.Builder
 
-	// limit the execution time if specified
-	var cancel xcontext.CancelFunc
-
-	if r.ts.Options.Timeout != 0 {
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
-		defer cancel()
-	} else {
-		r.ts.Options.Timeout = xjson.Duration(defaultTimeout)
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
-		defer cancel()
-	}
+	ctx, cancel := options.NewOptions(ctx, defaultTimeout, r.ts.options.Timeout)
+	defer cancel()
 
 	pe := test.NewParamExpander(target)
 
-	if r.ts.Transport.Proto != supportedProto {
-		err := fmt.Errorf("only '%s' is supported as protocol in this teststep", supportedProto)
-		outputBuf.WriteString(fmt.Sprintf("%v", err))
-
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
-	}
-
-	if len(r.ts.Parameter.Args) == 0 {
-		r.ts.Parameter.Args = defaultArgs
+	if len(r.ts.Args) == 0 {
+		r.ts.Args = defaultArgs
 	}
 
 	r.ts.writeTestStep(&outputBuf)
 
-	transport, err := transport.NewTransport(r.ts.Transport.Proto, r.ts.Transport.Options, pe)
+	transportProto, err := transport.NewTransport(r.ts.transport.Proto, []string{ssh}, r.ts.transport.Options, pe)
 	if err != nil {
 		err := fmt.Errorf("failed to create transport: %w", err)
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
@@ -80,7 +63,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
-	if err := r.ts.runPerformance(ctx, &outputBuf, transport); err != nil {
+	if err := r.ts.runPerformance(ctx, &outputBuf, transportProto); err != nil {
 		outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
@@ -91,7 +74,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 
 func (ts *TestStep) runPerformance(ctx xcontext.Context, outputBuf *strings.Builder, transport transport.Transport,
 ) error {
-	proc, err := transport.NewProcess(ctx, sysbench, ts.Parameter.Args, "")
+	proc, err := transport.NewProcess(ctx, sysbench, ts.Args, "")
 	if err != nil {
 		return fmt.Errorf("Failed to create proc: %w", err)
 	}
@@ -304,7 +287,7 @@ func (ts *TestStep) parseOutput(outputBuf *strings.Builder, data []byte) error {
 		output.ThreadsFairness.AverageExecutionTimePerThread = avgExecutionTimePerThread
 	}
 
-	for _, option := range ts.expectStepParams {
+	for _, option := range ts.Expect {
 		switch option.Option {
 		case "EventsPerSecond":
 			if err := parseValue(int(output.CpuSpeed.EventsPerSecond), option.Value); err != nil {
