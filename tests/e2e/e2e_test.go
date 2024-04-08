@@ -45,7 +45,6 @@ import (
 	"github.com/linuxboot/contest/plugins/testfetchers/literal"
 	"github.com/linuxboot/contest/plugins/teststeps/cmd"
 	"github.com/linuxboot/contest/plugins/teststeps/sleep"
-	"github.com/linuxboot/contest/plugins/teststeps/waitport"
 	testsCommon "github.com/linuxboot/contest/tests/common"
 	"github.com/linuxboot/contest/tests/common/goroutine_leak_check"
 	"github.com/linuxboot/contest/tests/integ/common"
@@ -57,9 +56,7 @@ import (
 
 // NB: When adding a test here you need to invoke it explicitly from docker/contest/tests.sh
 
-var (
-	ctx = logrusctx.NewContext(logger.LevelDebug, logging.DefaultOptions()...)
-)
+var ctx = logrusctx.NewContext(logger.LevelDebug, logging.DefaultOptions()...)
 
 type E2ETestSuite struct {
 	suite.Suite
@@ -122,7 +119,7 @@ func (ts *E2ETestSuite) startServer(extraArgs ...string) {
 				targetlist_with_state.Load,
 			},
 			TestFetcherLoaders: []test.TestFetcherLoader{literal.Load},
-			TestStepLoaders:    []test.TestStepLoader{cmd.Load, sleep.Load, waitport.Load},
+			TestStepLoaders:    []test.TestStepLoader{cmd.Load, sleep.Load},
 			ReporterLoaders:    []job.ReporterLoader{targetsuccess.Load, noop.Load},
 		}
 		err := server.Main(&pc, "contest", args, serverSigs)
@@ -369,7 +366,6 @@ func (ts *E2ETestSuite) TestRetries() {
 		assert.NoError(ts.T(), tmpFile.Close())
 		assert.NoError(ts.T(), os.Remove(tmpFile.Name()))
 	}()
-	require.NoError(ts.T(), templ.Execute(tmpFile, testDescriptorCustomisation{WaitPort: waitPort}))
 
 	var jobID types.JobID
 	{ // Start a job.
@@ -425,7 +421,8 @@ func (ts *E2ETestSuite) TestRetries() {
 	{ // Verify step output.
 		es := testsCommon.GetJobEventsAsString(ctx, ts.st, jobID, []event.Name{
 			cmd.EventCmdStdout, target.EventTargetAcquired, target.EventTargetReleased,
-			target.EventTargetOut, target.EventTargetErr} )
+			target.EventTargetOut, target.EventTargetErr,
+		})
 		ctx.Debugf("%s", es)
 		require.Equal(ts.T(),
 			fmt.Sprintf(`
