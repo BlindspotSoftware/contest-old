@@ -27,11 +27,7 @@ import (
 	"github.com/linuxboot/contest/plugins/testfetchers/literal"
 	"github.com/linuxboot/contest/plugins/testfetchers/uri"
 	"github.com/linuxboot/contest/plugins/teststeps/cmd"
-	"github.com/linuxboot/contest/plugins/teststeps/echo"
-	"github.com/linuxboot/contest/plugins/teststeps/example"
-	"github.com/linuxboot/contest/plugins/teststeps/randecho"
 	"github.com/linuxboot/contest/plugins/teststeps/sleep"
-	"github.com/linuxboot/contest/plugins/teststeps/sshcmd"
 	"github.com/linuxboot/contest/tools/migration/rdbms/migrate"
 
 	"github.com/linuxboot/contest/pkg/pluginregistry"
@@ -85,10 +81,11 @@ type Request struct {
 //   actually submitted at test time.
 
 // Schema v0002 introduces the concept of extended_descriptor, which is defined as follows:
-// type ExtendedDescriptor struct {
-//		JobDescriptor
-//		TestStepsDescriptors []test.TestStepsDescriptors
-// }
+//
+//	type ExtendedDescriptor struct {
+//			JobDescriptor
+//			TestStepsDescriptors []test.TestStepsDescriptors
+//	}
 //
 // We remove TestDescriptors from Request objects, and we store that information side-by-side with
 // JobDescriptor into an ExtendedDescriptor. We then store this ExtendedDescriptor in the jobs table
@@ -426,11 +423,8 @@ var testFetchers = []test.TestFetcherLoader{
 
 var testSteps = []test.TestStepLoader{
 	cmd.Load,
-	echo.Load,
-	example.Load,
-	randecho.Load,
 	sleep.Load,
-	sshcmd.Load,
+	cmd.Load,
 }
 
 var reporters = []job.ReporterLoader{
@@ -447,7 +441,6 @@ var testInitOnce sync.Once
 
 // Init initializes the plugin registry
 func initPlugins(pluginRegistry *pluginregistry.PluginRegistry, log xcontext.Logger) {
-
 	// Register TargetManager plugins
 	for _, tmloader := range TargetManagers {
 		if err := pluginRegistry.RegisterTargetManager(tmloader()); err != nil {
@@ -466,7 +459,6 @@ func initPlugins(pluginRegistry *pluginregistry.PluginRegistry, log xcontext.Log
 	for _, tsloader := range testSteps {
 		if err := pluginRegistry.RegisterTestStep(tsloader()); err != nil {
 			log.Fatalf("%v", err)
-
 		}
 	}
 
