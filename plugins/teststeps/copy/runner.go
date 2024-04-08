@@ -4,15 +4,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
-	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
 	"github.com/linuxboot/contest/plugins/teststeps/abstraction/transport"
 	sshTransport "github.com/linuxboot/contest/plugins/teststeps/abstraction/transport"
+)
+
+const (
+	supportedProto = "ssh"
 )
 
 type TargetRunner struct {
@@ -28,78 +31,56 @@ func NewTargetRunner(ts *TestStep, ev testevent.Emitter) *TargetRunner {
 }
 
 func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
-	var stdoutMsg, stderrMsg strings.Builder
+	var outputBuf strings.Builder
 
-	// limit the execution time if specified
-	var cancel xcontext.CancelFunc
-
-	if r.ts.Options.Timeout != 0 {
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
-		defer cancel()
-	} else {
-		r.ts.Options.Timeout = xjson.Duration(defaultTimeout)
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
-		defer cancel()
-	}
+	ctx, cancel := options.NewOptions(ctx, defaultTimeout, r.ts.options.Timeout)
+	defer cancel()
 
 	pe := test.NewParamExpander(target)
 
-	var params inputStepParams
+	r.ts.writeTestStep(&outputBuf)
 
-	if err := pe.ExpandObject(r.ts.inputStepParams, &params); err != nil {
-		err := fmt.Errorf("failed to expand input parameter: %v", err)
-		stderrMsg.WriteString(fmt.Sprintf("%v", err))
-
-		return emitStderr(ctx, EventStderr, stderrMsg.String(), target, r.ev, err)
-	}
-
-	transport, err := transport.NewTransport(params.Transport.Proto, params.Transport.Options, pe)
+	transportProto, err := transport.NewTransport(r.ts.transport.Proto, []string{supportedProto}, r.ts.transport.Options, pe)
 	if err != nil {
-		err := fmt.Errorf("Failed to create transport: %w", err)
-		stderrMsg.WriteString(fmt.Sprintf("%v\n", err))
+		err := fmt.Errorf("failed to create transport: %w", err)
+		outputBuf.WriteString(fmt.Sprintf("%v", err))
 
-		return emitStderr(ctx, EventStderr, stderrMsg.String(), target, r.ev, err)
+		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
-	writeTestStep(r.ts, &stdoutMsg, &stderrMsg)
+	if err := r.runCopy(ctx, &outputBuf, target, transportProto); err != nil {
+		outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
-	if err := r.runCopy(ctx, &stdoutMsg, &stderrMsg, target, transport, params); err != nil {
-		stderrMsg.WriteString(fmt.Sprintf("%v\n", err))
-
-		return emitStderr(ctx, EventStderr, stderrMsg.String(), target, r.ev, err)
+		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
-	if err := emitEvent(ctx, EventStdout, eventPayload{Msg: stdoutMsg.String()}, target, r.ev); err != nil {
-		return fmt.Errorf("cannot emit event: %v", err)
-	}
-
-	return nil
+	return emitStdout(ctx, outputBuf.String(), target, r.ev)
 }
 
-func (r *TargetRunner) runCopy(ctx xcontext.Context, stdoutMsg, stderrMsg *strings.Builder, target *target.Target,
-	transport transport.Transport, params inputStepParams,
+func (r *TargetRunner) runCopy(ctx xcontext.Context, outputBuf *strings.Builder, target *target.Target,
+	transport transport.Transport,
 ) error {
-	copy, err := transport.NewCopy(ctx, params.Parameter.SrcPath, params.Parameter.DstPath, r.ts.Parameter.Recursive)
+	copy, err := transport.NewCopy(ctx, r.ts.SrcPath, r.ts.DstPath, r.ts.Recursive)
 	if err != nil {
 		return fmt.Errorf("Failed to copy data to target: %v", err)
 	}
 
-	if params.Transport.Proto == "ssh" {
+	if r.ts.transport.Proto == "ssh" {
 		config := sshTransport.DefaultSSHTransportConfig()
-		if err := json.Unmarshal(params.Transport.Options, &config); err != nil {
+		if err := json.Unmarshal(r.ts.transport.Options, &config); err != nil {
 			return fmt.Errorf("Failed to unmarshal Transport options: %v", err)
 		}
 
-		writeCommand(copy.String(), fmt.Sprintf("%s:%d", config.Host, config.Port), stdoutMsg, stderrMsg)
+		writeCommand(copy.String(), fmt.Sprintf("%s:%d", config.Host, config.Port), outputBuf)
 	} else {
-		writeCommand(copy.String(), "localhost", stdoutMsg, stderrMsg)
+		writeCommand(copy.String(), "localhost", outputBuf)
 	}
 
 	if err := copy.Copy(ctx); err != nil {
 		return fmt.Errorf("Failed to copy data: %v", err)
 	}
 
-	writeCommandOutput(stdoutMsg, fmt.Sprintf("Successfully copied %s to %s", params.Parameter.SrcPath, params.Parameter.DstPath))
+	writeCommandOutput(outputBuf, fmt.Sprintf("Successfully copied %s to %s", r.ts.SrcPath, r.ts.DstPath))
 
 	return nil
 }

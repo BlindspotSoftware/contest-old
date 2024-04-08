@@ -5,45 +5,34 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
 	"github.com/linuxboot/contest/plugins/teststeps"
-)
-
-const (
-	in = "input"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/transport"
 )
 
 // Name is the name used to look this plugin up.
 var Name = "Copy"
 
 const (
-	defaultTimeout = time.Minute
+	parametersKeyword = "parameters"
+	defaultTimeout    = time.Minute
 )
 
-type inputStepParams struct {
-	Transport struct {
-		Proto   string          `json:"proto"`
-		Options json.RawMessage `json:"options,omitempty"`
-	} `json:"transport"`
-
-	Parameter struct {
-		DstPath   string `json:"destination,omitempty"`
-		SrcPath   string `json:"source,omitempty"`
-		Recursive bool   `json:"recursive,omitempty"`
-	} `json:"parameter"`
-
-	Options struct {
-		Timeout xjson.Duration `json:"timeout,omitempty"`
-	} `json:"options,omitempty"`
+type parameters struct {
+	DstPath   string `json:"destination,omitempty"`
+	SrcPath   string `json:"source,omitempty"`
+	Recursive bool   `json:"recursive,omitempty"`
 }
 
-// TestStep implementation for this teststep plugin
+// TestStep implementation for this teststep plugintype TestStep struct {
 type TestStep struct {
-	inputStepParams
+	parameters
+	transport transport.Parameters
+	options   options.Parameters
 }
 
 // Run executes the step.
@@ -57,14 +46,26 @@ func (ts *TestStep) Run(ctx xcontext.Context, ch test.TestStepChannels, params t
 }
 
 func (ts *TestStep) populateParams(stepParams test.TestStepParameters) error {
-	var input *test.Param
+	var parameters, transportParams, optionsParams *test.Param
 
-	if input = stepParams.GetOne(in); input.IsEmpty() {
-		return fmt.Errorf("input parameter cannot be empty")
+	if parameters = stepParams.GetOne(parametersKeyword); parameters.IsEmpty() {
+		return fmt.Errorf("parameters cannot be empty")
 	}
 
-	if err := json.Unmarshal(input.JSON(), &ts.inputStepParams); err != nil {
-		return fmt.Errorf("failed to deserialize %q parameters: %v", in, err)
+	if err := json.Unmarshal(parameters.JSON(), &ts.parameters); err != nil {
+		return fmt.Errorf("failed to deserialize parameters: %v", err)
+	}
+
+	transportParams = stepParams.GetOne(transport.Keyword)
+
+	if err := json.Unmarshal(transportParams.JSON(), &ts.transport); err != nil {
+		return fmt.Errorf("failed to deserialize transport: %v", err)
+	}
+
+	optionsParams = stepParams.GetOne(options.Keyword)
+
+	if err := json.Unmarshal(optionsParams.JSON(), &ts.options); err != nil {
+		return fmt.Errorf("failed to deserialize options: %v", err)
 	}
 
 	return nil
