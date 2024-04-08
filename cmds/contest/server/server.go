@@ -50,26 +50,22 @@ import (
 	bios_setting_get "github.com/linuxboot/contest/plugins/teststeps/bios_settings_get"
 	bios_setting_set "github.com/linuxboot/contest/plugins/teststeps/bios_settings_set"
 	chipsec "github.com/linuxboot/contest/plugins/teststeps/chipsec"
-	ts_cmd "github.com/linuxboot/contest/plugins/teststeps/cmd"
+	cmd "github.com/linuxboot/contest/plugins/teststeps/cmd"
 	copy "github.com/linuxboot/contest/plugins/teststeps/copy"
 	cpuload "github.com/linuxboot/contest/plugins/teststeps/cpuload"
 	cpuset "github.com/linuxboot/contest/plugins/teststeps/cpuset"
 	cpustats "github.com/linuxboot/contest/plugins/teststeps/cpustats"
 	dutctl "github.com/linuxboot/contest/plugins/teststeps/dutctl"
-	echo "github.com/linuxboot/contest/plugins/teststeps/echo"
-	exec "github.com/linuxboot/contest/plugins/teststeps/exec"
 	firmware_version "github.com/linuxboot/contest/plugins/teststeps/fw_version"
 	fwhunt "github.com/linuxboot/contest/plugins/teststeps/fwhunt"
 	fwts "github.com/linuxboot/contest/plugins/teststeps/fwts"
 	hwaas "github.com/linuxboot/contest/plugins/teststeps/hwaas"
 	ping "github.com/linuxboot/contest/plugins/teststeps/ping"
 	qemu "github.com/linuxboot/contest/plugins/teststeps/qemu"
-	randecho "github.com/linuxboot/contest/plugins/teststeps/randecho"
 	robot "github.com/linuxboot/contest/plugins/teststeps/robot"
 	s0ix_selftest "github.com/linuxboot/contest/plugins/teststeps/s0ix-selftest"
 	secureboot "github.com/linuxboot/contest/plugins/teststeps/secureboot"
 	sleep "github.com/linuxboot/contest/plugins/teststeps/sleep"
-	sshcmd "github.com/linuxboot/contest/plugins/teststeps/sshcmd"
 	sysbench "github.com/linuxboot/contest/plugins/teststeps/sysbench"
 
 	// the reporter plugins
@@ -129,7 +125,6 @@ func GetPluginConfig() *PluginConfig {
 	pc.TargetManagerLoaders = append(pc.TargetManagerLoaders, targetlist.Load)
 	pc.TestFetcherLoaders = append(pc.TestFetcherLoaders, literal.Load)
 	pc.TestFetcherLoaders = append(pc.TestFetcherLoaders, uri.Load)
-	pc.TestStepLoaders = append(pc.TestStepLoaders, ts_cmd.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, cpustats.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, cpuload.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, cpuset.Load)
@@ -137,14 +132,11 @@ func GetPluginConfig() *PluginConfig {
 	pc.TestStepLoaders = append(pc.TestStepLoaders, fwhunt.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, fwts.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, firmware_version.Load)
-	pc.TestStepLoaders = append(pc.TestStepLoaders, echo.Load)
-	pc.TestStepLoaders = append(pc.TestStepLoaders, exec.Load)
-	pc.TestStepLoaders = append(pc.TestStepLoaders, randecho.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, robot.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, secureboot.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, sleep.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, s0ix_selftest.Load)
-	pc.TestStepLoaders = append(pc.TestStepLoaders, sshcmd.Load)
+	pc.TestStepLoaders = append(pc.TestStepLoaders, cmd.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, sysbench.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, copy.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, bios_setting_set.Load)
