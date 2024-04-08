@@ -7,13 +7,12 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
-	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
 	"github.com/linuxboot/contest/plugins/teststeps/abstraction/transport"
 )
 
@@ -44,50 +43,14 @@ func NewTargetRunner(ts *TestStep, ev testevent.Emitter) *TargetRunner {
 func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	var outputBuf strings.Builder
 
-	// limit the execution time if specified
-	var cancel xcontext.CancelFunc
-
-	if r.ts.Options.Timeout == 0 {
-		r.ts.Options.Timeout = xjson.Duration(defaultTimeout)
-	}
-
-	ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
+	ctx, cancel := options.NewOptions(ctx, defaultTimeout, r.ts.options.Timeout)
 	defer cancel()
 
 	pe := test.NewParamExpander(target)
 
-	var params inputStepParams
-	if err := pe.ExpandObject(r.ts.inputStepParams, &params); err != nil {
-		err := fmt.Errorf("failed to expand input parameter: %v", err)
-		outputBuf.WriteString(fmt.Sprintf("%v", err))
+	r.ts.writeTestStep(&outputBuf)
 
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
-	}
-
-	writeTestStep(r.ts, &outputBuf)
-
-	if params.Transport.Proto != supportedProto {
-		err := fmt.Errorf("only %q is supported as protocol in this teststep", supportedProto)
-		outputBuf.WriteString(fmt.Sprintf("%v", err))
-
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
-	}
-
-	if params.Parameter.Password == "" && params.Parameter.KeyPath == "" {
-		err := fmt.Errorf("password or certificate file must be set")
-		outputBuf.WriteString(fmt.Sprintf("%v", err))
-
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
-	}
-
-	if len(params.Parameter.BiosOptions) == 0 {
-		err := fmt.Errorf("at least one bios option and value must be set")
-		outputBuf.WriteString(fmt.Sprintf("%v", err))
-
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
-	}
-
-	transportProto, err := transport.NewTransport(params.Transport.Proto, params.Transport.Options, pe)
+	transportProto, err := transport.NewTransport(r.ts.transport.Proto, []string{supportedProto}, r.ts.transport.Options, pe)
 	if err != nil {
 		err := fmt.Errorf("failed to create transport: %w", err)
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
@@ -95,7 +58,21 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
-	if err := r.ts.runSet(ctx, &outputBuf, transportProto, params); err != nil {
+	if r.ts.Password == "" && r.ts.KeyPath == "" {
+		err := fmt.Errorf("password or certificate file must be set")
+		outputBuf.WriteString(fmt.Sprintf("%v", err))
+
+		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
+	}
+
+	if len(r.ts.BiosOptions) == 0 {
+		err := fmt.Errorf("at least one bios option and value must be set")
+		outputBuf.WriteString(fmt.Sprintf("%v", err))
+
+		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
+	}
+
+	if err := r.ts.runSet(ctx, &outputBuf, transportProto); err != nil {
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
 
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
@@ -106,22 +83,22 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 
 func (ts *TestStep) runSet(
 	ctx xcontext.Context, outputBuf *strings.Builder,
-	transport transport.Transport, params inputStepParams,
+	transport transport.Transport,
 ) error {
 	var (
 		authString string
 		finalErr   error
 	)
 
-	if params.Parameter.Password != "" {
-		authString = fmt.Sprintf("--password=%s", params.Parameter.Password)
-	} else if params.Parameter.KeyPath != "" {
-		authString = fmt.Sprintf("--private-key=%s", params.Parameter.KeyPath)
+	if ts.Password != "" {
+		authString = fmt.Sprintf("--password=%s", ts.Password)
+	} else if ts.KeyPath != "" {
+		authString = fmt.Sprintf("--private-key=%s", ts.KeyPath)
 	}
 
-	for _, option := range ts.Parameter.BiosOptions {
+	for _, option := range ts.BiosOptions {
 		args := []string{
-			params.Parameter.ToolPath,
+			ts.ToolPath,
 			cmd,
 			argument,
 			fmt.Sprintf("--option=%s", option.Option),
@@ -174,7 +151,7 @@ func (ts *TestStep) runSet(
 			continue
 		}
 
-		if err := ts.parseOutput(stderr); err != nil {
+		if err := ts.parseOutput(stderr, option.ShouldFail); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 			outputBuf.WriteString("\n\n")
 
@@ -217,7 +194,7 @@ func readBuffer(r io.Reader) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (ts *TestStep) parseOutput(stderr []byte) error {
+func (ts *TestStep) parseOutput(stderr []byte, should_fail bool) error {
 	err := Error{}
 	if len(stderr) != 0 {
 		if err := json.Unmarshal(stderr, &err); err != nil {
@@ -226,14 +203,14 @@ func (ts *TestStep) parseOutput(stderr []byte) error {
 	}
 
 	if err.Msg != "" {
-		if err.Msg == "BIOS options are locked, needs unlocking." && ts.expect.ShouldFail {
+		if err.Msg == "BIOS options are locked, needs unlocking." && should_fail {
 			return nil
-		} else if err.Msg != "" && ts.expect.ShouldFail {
+		} else if err.Msg != "" && should_fail {
 			return nil
 		} else {
 			return errors.New(err.Msg)
 		}
-	} else if ts.expect.ShouldFail {
+	} else if should_fail {
 		return fmt.Errorf("Setting BIOS option should fail, but produced no error.")
 	}
 
