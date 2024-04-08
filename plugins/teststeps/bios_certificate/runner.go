@@ -149,7 +149,7 @@ func (ts *TestStep) runEnable(
 		return fmt.Errorf("failed to run bios certificate cmd: %v", outcome)
 	}
 
-	err = parseOutput(outputBuf, stderr)
+	err = parseOutput(stderr)
 	if ts.Expect.ShouldFail && err != nil {
 		return nil
 	}
@@ -210,7 +210,7 @@ func (ts *TestStep) runUpdate(
 		return fmt.Errorf("failed to run bios certificate cmd: %v", outcome)
 	}
 
-	err = parseOutput(outputBuf, stderr)
+	err = parseOutput(stderr)
 	if ts.Expect.ShouldFail && err != nil {
 		return nil
 	}
@@ -271,7 +271,7 @@ func (ts *TestStep) runDisable(
 		return fmt.Errorf("failed to run bios certificate cmd: %v", outcome)
 	}
 
-	err = parseOutput(outputBuf, stderr)
+	err = parseOutput(stderr)
 	if ts.Expect.ShouldFail && err != nil {
 		return nil
 	}
@@ -330,7 +330,7 @@ func (ts *TestStep) runCheck(
 		return fmt.Errorf("failed to run bios certificate cmd: %v", outcome)
 	}
 
-	err = parseOutput(outputBuf, stderr)
+	err = parseOutput(stderr)
 	if ts.Expect.ShouldFail && err != nil {
 		return nil
 	}
@@ -366,7 +366,7 @@ func readBuffer(r io.Reader) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func parseOutput(outputBuf *strings.Builder, stderr []byte) error {
+func parseOutput(stderr []byte) error {
 	err := Error{}
 	if len(stderr) != 0 {
 		if err := json.Unmarshal(stderr, &err); err != nil {
