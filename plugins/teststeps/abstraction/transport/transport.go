@@ -25,12 +25,31 @@ type Copy interface {
 	String() string
 }
 
+const (
+	Keyword = "transport"
+)
+type Parameters struct {
+		Proto   string          `json:"proto"`
+		Options json.RawMessage `json:"options,omitempty"`
+	} 
+
 type Transport interface {
 	NewProcess(ctx xcontext.Context, bin string, args []string, workingDir string) (Process, error)
 	NewCopy(ctx xcontext.Context, source, destination string, recursive bool) (Copy, error)
 }
 
-func NewTransport(proto string, configSource json.RawMessage, expander *test.ParamExpander) (Transport, error) {
+func NewTransport(proto string, supportedProtos []string, configSource json.RawMessage, expander *test.ParamExpander) (Transport, error) {
+	var found bool
+	for _, p := range supportedProtos {
+		if p == proto {
+			 found = true
+		}
+	}
+	
+	if !found {
+		return nil, fmt.Errorf("no such transport: %v", proto)
+	}
+
 	switch proto {
 	case "local":
 		return NewLocalTransport(), nil
