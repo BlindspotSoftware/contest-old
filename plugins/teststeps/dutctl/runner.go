@@ -5,13 +5,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/target"
-	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
 )
 
 type TargetRunner struct {
@@ -29,30 +27,12 @@ func NewTargetRunner(ts *TestStep, ev testevent.Emitter) *TargetRunner {
 func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	var stdoutMsg, stderrMsg strings.Builder
 
-	// limit the execution time if specified
-	var cancel xcontext.CancelFunc
+	ctx, cancel := options.NewOptions(ctx, defaultTimeout, r.ts.options.Timeout)
+	defer cancel()
 
-	if r.ts.Options.Timeout != 0 {
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
-		defer cancel()
-	} else {
-		r.ts.Options.Timeout = xjson.Duration(defaultTimeout)
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
-		defer cancel()
-	}
+	r.ts.writeTestStep(&stdoutMsg, &stderrMsg)
 
-	pe := test.NewParamExpander(target)
-
-	var params inputStepParams
-
-	if err := pe.ExpandObject(r.ts.inputStepParams, &params); err != nil {
-		err := fmt.Errorf("failed to expand input parameter: %v", err)
-		stderrMsg.WriteString(fmt.Sprintf("%v", err))
-
-		return emitStderr(ctx, EventStderr, stderrMsg.String(), target, r.ev, err)
-	}
-
-	if r.ts.Parameter.Host != "" {
+	if r.ts.Host != "" {
 		var certFile string
 
 		fp := "/" + filepath.Join("etc", "fti", "keys", "ca-cert.pem")
@@ -60,23 +40,22 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 			certFile = fp
 		}
 
-		if !strings.Contains(r.ts.Parameter.Host, ":") {
+		if !strings.Contains(r.ts.Host, ":") {
 			// Add default port
 			if certFile == "" {
-				r.ts.Parameter.Host += ":10000"
+				r.ts.Host += ":10000"
 			} else {
-				r.ts.Parameter.Host += ":10001"
+				r.ts.Host += ":10001"
 			}
 		}
 	}
 
-	writeTestStep(r.ts, &stdoutMsg, &stderrMsg)
-	writeCommand(params.Parameter.Command, params.Parameter.Args, &stdoutMsg, &stderrMsg)
+	writeCommand(r.ts.Command, r.ts.Args, &stdoutMsg, &stderrMsg)
 
 	stdoutMsg.WriteString("Stdout:\n")
 	stderrMsg.WriteString("Stderr:\n")
 
-	switch r.ts.Parameter.Command {
+	switch r.ts.Command {
 	case "power":
 		if err := r.powerCmds(ctx, &stdoutMsg, &stderrMsg, target); err != nil {
 			stderrMsg.WriteString(fmt.Sprintf("%v\n", err))
@@ -98,7 +77,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		}
 
 	default:
-		return fmt.Errorf("Command '%s' is not valid. Possible values are 'power', 'flash' and 'serial'.", params.Parameter.Command)
+		return fmt.Errorf("Command '%s' is not valid. Possible values are 'power', 'flash' and 'serial'.", r.ts.Command)
 	}
 
 	if err := emitEvent(ctx, EventStdout, eventPayload{Msg: stdoutMsg.String()}, target, r.ev); err != nil {

@@ -26,14 +26,14 @@ func (r *TargetRunner) powerCmds(ctx xcontext.Context, stdoutMsg, stderrMsg *str
 
 	for tries := 0; tries < 2; tries += 1 {
 
-		dutInterface, err = client.NewDutCtl("", false, r.ts.Parameter.Host, false, "", 0, 2)
+		dutInterface, err = client.NewDutCtl("", false, r.ts.Host, false, "", 0, 2)
 		if err != nil {
 			// Try insecure on port 10000
-			if strings.Contains(r.ts.Parameter.Host, ":10001") {
-				r.ts.Parameter.Host = strings.Split(r.ts.Parameter.Host, ":")[0] + ":10000"
+			if strings.Contains(r.ts.Host, ":10001") {
+				r.ts.Host = strings.Split(r.ts.Host, ":")[0] + ":10000"
 			}
 
-			dutInterface, err = client.NewDutCtl("", false, r.ts.Parameter.Host, false, "", 0, 2)
+			dutInterface, err = client.NewDutCtl("", false, r.ts.Host, false, "", 0, 2)
 			if err != nil {
 				stderrMsg.WriteString(fmt.Sprintf("Failed to connect to DUT: %v\n", err))
 
@@ -56,11 +56,11 @@ func (r *TargetRunner) powerCmds(ctx xcontext.Context, stdoutMsg, stderrMsg *str
 			continue
 		}
 
-		if len(r.ts.Parameter.Args) == 0 {
+		if len(r.ts.Args) == 0 {
 			return fmt.Errorf("Failed to execute the power command. Args is empty. Possible values are 'on', 'off' and 'powercycle'.")
 		}
 
-		switch r.ts.Parameter.Args[0] {
+		switch r.ts.Args[0] {
 		case "on":
 			if err := dutInterface.PowerOn(); err != nil {
 				stderrMsg.WriteString(fmt.Sprintf("Failed to power on: %v\n", err))
@@ -71,14 +71,14 @@ func (r *TargetRunner) powerCmds(ctx xcontext.Context, stdoutMsg, stderrMsg *str
 
 			stdoutMsg.WriteString("Successfully powered on DUT.\n")
 
-			if len(r.ts.expectStepParams) != 0 {
+			if len(r.ts.Expect) != 0 {
 				regexList, err := r.getRegexList()
 				if err != nil {
 					return fmt.Errorf("Failed to parse regex list: %v\n", err)
 				}
 
 				if err := r.serial(ctx, stdoutMsg, stderrMsg, dutInterface, regexList); err != nil {
-					return fmt.Errorf("the expect '%s' was not found in the logs", r.ts.expectStepParams)
+					return fmt.Errorf("the expect '%s' was not found in the logs", r.ts.Expect)
 				}
 			}
 
@@ -104,14 +104,14 @@ func (r *TargetRunner) powerCmds(ctx xcontext.Context, stdoutMsg, stderrMsg *str
 
 			stdoutMsg.WriteString("Successfully reset(hard) the DUT.\n")
 
-			if len(r.ts.expectStepParams) != 0 {
+			if len(r.ts.Expect) != 0 {
 				regexList, err := r.getRegexList()
 				if err != nil {
 					return fmt.Errorf("Failed to parse regex list: %v\n", err)
 				}
 
 				if err := r.serial(ctx, stdoutMsg, stderrMsg, dutInterface, regexList); err != nil {
-					return fmt.Errorf("the expect '%s' was not found in the logs", r.ts.expectStepParams)
+					return fmt.Errorf("the expect '%s' was not found in the logs", r.ts.Expect)
 				}
 			}
 
@@ -119,11 +119,11 @@ func (r *TargetRunner) powerCmds(ctx xcontext.Context, stdoutMsg, stderrMsg *str
 
 		case "powercycle":
 
-			if len(r.ts.Parameter.Args) != 2 {
+			if len(r.ts.Args) != 2 {
 				return fmt.Errorf("You have to add only a second argument to specify how often you want to powercycle.")
 			}
 
-			reboots, err := strconv.Atoi(r.ts.Parameter.Args[1])
+			reboots, err := strconv.Atoi(r.ts.Args[1])
 			if err != nil {
 				return fmt.Errorf("powercycle amount could not be parsed: %v\n", err)
 			}
@@ -145,15 +145,15 @@ func (r *TargetRunner) powerCmds(ctx xcontext.Context, stdoutMsg, stderrMsg *str
 				}
 
 				if err := r.serial(ctx, stdoutMsg, stderrMsg, dutInterface, regexList); err != nil {
-					return fmt.Errorf("the expect '%v' was not found in the logs", r.ts.expectStepParams)
+					return fmt.Errorf("the expect '%v' was not found in the logs", r.ts.Expect)
 				}
 			}
 
-			stdoutMsg.WriteString(fmt.Sprintf("Successfully powercycled the DUT '%s'.\n", r.ts.Parameter.Args[1]))
+			stdoutMsg.WriteString(fmt.Sprintf("Successfully powercycled the DUT '%s'.\n", r.ts.Args[1]))
 
 			return nil
 		default:
-			return fmt.Errorf("Failed to execute the power command. The argument '%s' is not valid. Possible values are 'on', 'off' and 'powercycle'.", r.ts.Parameter.Args)
+			return fmt.Errorf("Failed to execute the power command. The argument '%s' is not valid. Possible values are 'on', 'off' and 'powercycle'.", r.ts.Args)
 		}
 	}
 

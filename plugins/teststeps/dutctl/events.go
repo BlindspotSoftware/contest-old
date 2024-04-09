@@ -50,27 +50,27 @@ func emitEvent(ctx xcontext.Context, name event.Name, payload interface{}, tgt *
 }
 
 // Function to format teststep information and append it to a string builder.
-func writeTestStep(step *TestStep, builders ...*strings.Builder) {
+func (ts TestStep) writeTestStep(builders ...*strings.Builder) {
 	for _, builder := range builders {
 		builder.WriteString("Input Parameter:\n")
 		builder.WriteString("  Parameter:\n")
-		builder.WriteString(fmt.Sprintf("    Host: %s\n", step.Parameter.Host))
-		builder.WriteString(fmt.Sprintf("    Command: %s\n", step.Parameter.Command))
-		builder.WriteString(fmt.Sprintf("    Args: %s\n", step.Parameter.Args))
+		builder.WriteString(fmt.Sprintf("    Host: %s\n", ts.Host))
+		builder.WriteString(fmt.Sprintf("    Command: %s\n", ts.Command))
+		builder.WriteString(fmt.Sprintf("    Args: %s\n", ts.Args))
 
-		if step.Parameter.Command == "serial" {
-			builder.WriteString(fmt.Sprintf("    UART: %d\n", step.Parameter.UART))
+		if ts.Command == "serial" {
+			builder.WriteString(fmt.Sprintf("    UART: %d\n", ts.UART))
 		}
 
-		builder.WriteString(fmt.Sprintf("    Input: %s\n", step.Parameter.Input))
+		builder.WriteString(fmt.Sprintf("    Input: %s\n", ts.Input))
 		builder.WriteString("\n")
 
 		builder.WriteString("  Options:\n")
-		builder.WriteString(fmt.Sprintf("    Timeout: %s\n", time.Duration(step.Options.Timeout)))
+		builder.WriteString(fmt.Sprintf("    Timeout: %s\n", time.Duration(ts.options.Timeout)))
 		builder.WriteString("\n")
 
 		builder.WriteString("Expect Parameter:\n")
-		for i, expect := range step.expectStepParams {
+		for i, expect := range ts.Expect {
 			builder.WriteString(fmt.Sprintf("  Expect %d:\n", i+1))
 			builder.WriteString(fmt.Sprintf("    Regex: %s\n", expect.Regex))
 		}

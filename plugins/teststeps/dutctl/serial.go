@@ -23,14 +23,14 @@ func (r *TargetRunner) serialCmds(ctx xcontext.Context, stdoutMsg, stderrMsg *st
 		err          error
 	)
 
-	dutInterface, err = client.NewDutCtl("", false, r.ts.Parameter.Host, false, "", 0, 2)
+	dutInterface, err = client.NewDutCtl("", false, r.ts.Host, false, "", 0, 2)
 	if err != nil {
 		// Try insecure on port 10000
-		if strings.Contains(r.ts.Parameter.Host, ":10001") {
-			r.ts.Parameter.Host = strings.Split(r.ts.Parameter.Host, ":")[0] + ":10000"
+		if strings.Contains(r.ts.Host, ":10001") {
+			r.ts.Host = strings.Split(r.ts.Host, ":")[0] + ":10000"
 		}
 
-		dutInterface, err = client.NewDutCtl("", false, r.ts.Parameter.Host, false, "", 0, 2)
+		dutInterface, err = client.NewDutCtl("", false, r.ts.Host, false, "", 0, 2)
 		if err != nil {
 			return err
 		}
@@ -55,28 +55,28 @@ func (r *TargetRunner) serialCmds(ctx xcontext.Context, stdoutMsg, stderrMsg *st
 }
 
 func (r *TargetRunner) serial(ctx xcontext.Context, stdoutMsg, stderrMsg *strings.Builder, dutInterface dutctl.DutCtl, regexList []*regexp.Regexp) error {
-	timeout = time.Now().Add(time.Duration(r.ts.Options.Timeout))
+	timeout = time.Now().Add(time.Duration(r.ts.options.Timeout))
 
 	err := dutInterface.InitSerialPlugins()
 	if err != nil {
 		return fmt.Errorf("Failed to init serial plugins: %v\n", err)
 	}
 
-	iface, err := dutInterface.GetSerial(r.ts.Parameter.UART)
+	iface, err := dutInterface.GetSerial(r.ts.UART)
 	if err != nil {
 		return fmt.Errorf("Failed to get serial: %v\n", err)
 	}
 
 	// Write in into serial
-	if r.ts.Parameter.Input != "" {
-		if _, err := iface.Write([]byte(r.ts.Parameter.Input)); err != nil {
-			return fmt.Errorf("Error writing '%s' to dutctl: %w", r.ts.Parameter.Input, err)
+	if r.ts.Input != "" {
+		if _, err := iface.Write([]byte(r.ts.Input)); err != nil {
+			return fmt.Errorf("Error writing '%s' to dutctl: %w", r.ts.Input, err)
 		}
 
-		stdoutMsg.WriteString(fmt.Sprintf("Wrote '%s' to the DUT.\n", r.ts.Parameter.Input))
+		stdoutMsg.WriteString(fmt.Sprintf("Wrote '%s' to the DUT.\n", r.ts.Input))
 	}
 
-	if len(r.ts.expectStepParams) > 0 {
+	if len(r.ts.Expect) > 0 {
 		dst, err := os.Create("/tmp/dutctlserial")
 		if err != nil {
 			return fmt.Errorf("Creating serial dst file failed: %v", err)
@@ -106,7 +106,6 @@ func (r *TargetRunner) serial(ctx xcontext.Context, stdoutMsg, stderrMsg *string
 							return
 						}
 					} else {
-
 						retryCount = 0
 					}
 				}
@@ -128,7 +127,7 @@ func (r *TargetRunner) serial(ctx xcontext.Context, stdoutMsg, stderrMsg *string
 				r.writeMatches(stdoutMsg, stderrMsg, serial, regexList)
 				r.writeSerial(stdoutMsg, stderrMsg, serial)
 
-				return fmt.Errorf("Timed out after %s.", r.ts.Options.Timeout.String())
+				return fmt.Errorf("Timed out after %s.", r.ts.options.Timeout.String())
 			}
 
 			foundAll = true
@@ -160,9 +159,9 @@ func (r *TargetRunner) writeMatches(stdoutMsg, stderrMsg *strings.Builder, seria
 	for reIndex, re := range regexList {
 		matches := re.FindAllSubmatch(serial, -1)
 		if len(matches) == 0 {
-			stderrMsg.WriteString(fmt.Sprintf("Could not find the expected regex '%s' in Stdout.\n", r.ts.expectStepParams[reIndex].Regex))
+			stderrMsg.WriteString(fmt.Sprintf("Could not find the expected regex '%s' in Stdout.\n", r.ts.Expect[reIndex].Regex))
 		} else {
-			stdoutMsg.WriteString(fmt.Sprintf("Found the expected regex '%s' in Stdout. All matches listed here:\n", r.ts.expectStepParams[reIndex].Regex))
+			stdoutMsg.WriteString(fmt.Sprintf("Found the expected regex '%s' in Stdout. All matches listed here:\n", r.ts.Expect[reIndex].Regex))
 			for maIndex, match := range matches {
 				stdoutMsg.WriteString(fmt.Sprintf("Match %d: '%s'\n", maIndex+1, match[0]))
 			}
@@ -176,12 +175,12 @@ func (r *TargetRunner) writeSerial(stdoutMsg, stderrMsg *strings.Builder, serial
 }
 
 func (r *TargetRunner) getRegexList() ([]*regexp.Regexp, error) {
-	regexList := make([]*regexp.Regexp, len(r.ts.expectStepParams))
+	regexList := make([]*regexp.Regexp, len(r.ts.Expect))
 
-	for index := range r.ts.expectStepParams {
-		re, err := regexp.Compile(r.ts.expectStepParams[index].Regex)
+	for index := range r.ts.Expect {
+		re, err := regexp.Compile(r.ts.Expect[index].Regex)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to parse the regex '%s': %v", r.ts.expectStepParams[index].Regex, err)
+			return nil, fmt.Errorf("Failed to parse the regex '%s': %v", r.ts.Expect[index].Regex, err)
 		}
 
 		regexList[index] = re
