@@ -5,48 +5,38 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
 	"github.com/linuxboot/contest/plugins/teststeps"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
 )
 
 const (
-	in  = "input"
-	out = "expect"
+	defaultTimeout    = time.Minute
+	parametersKeyword = "parameters"
 )
 
 // Name is the name used to look this plugin up.
 var Name = "DUTCtl"
 
-const (
-	defaultTimeout = time.Minute
-)
+type parameters struct {
+	Host    string   `json:"host"`
+	Command string   `json:"command"`
+	Args    []string `json:"args,omitempty"`
+	UART    int      `json:"uart,omitempty"`
+	Input   string   `json:"input,omitempty"`
 
-type inputStepParams struct {
-	Parameter struct {
-		Host    string   `json:"host"`
-		Command string   `json:"command"`
-		Args    []string `json:"args,omitempty"`
-		UART    int      `json:"uart,omitempty"`
-		Input   string   `json:"input,omitempty"`
-	} `json:"parameter"`
-
-	Options struct {
-		Timeout xjson.Duration `json:"timeout,omitempty"`
-	} `json:"options,omitempty"`
-}
-
-type Expect struct {
-	Regex string `json:"regex,omitempty"`
+	Expect []struct {
+		Regex string `json:"regex,omitempty"`
+	} `json:"expect,omitempty"`
 }
 
 // TestStep implementation for this teststep plugin
 type TestStep struct {
-	inputStepParams
-	expectStepParams []Expect
+	parameters
+	options options.Parameters
 }
 
 // Name returns the plugin name.
@@ -68,40 +58,29 @@ func (ts *TestStep) Run(ctx xcontext.Context, ch test.TestStepChannels, params t
 
 // Retrieve all the parameters defines through the jobDesc
 func (ts *TestStep) validateAndPopulate(stepParams test.TestStepParameters) error {
-	var input *test.Param
+	var parameters, optionsParams *test.Param
 
-	if input = stepParams.GetOne(in); input.IsEmpty() {
-		return fmt.Errorf("input parameter cannot be empty")
+	if parameters = stepParams.GetOne(parametersKeyword); parameters.IsEmpty() {
+		return fmt.Errorf("parameters cannot be empty")
 	}
 
-	if err := json.Unmarshal(input.JSON(), &ts.inputStepParams); err != nil {
-		return fmt.Errorf("failed to deserialize %q parameters: %v", in, err)
+	if err := json.Unmarshal(parameters.JSON(), &ts.parameters); err != nil {
+		return fmt.Errorf("failed to deserialize parameters: %v", err)
 	}
 
-	if ts.Parameter.Host == "" {
+	optionsParams = stepParams.GetOne(options.Keyword)
+
+	if err := json.Unmarshal(optionsParams.JSON(), &ts.options); err != nil {
+		return fmt.Errorf("failed to deserialize options: %v", err)
+	}
+
+	if ts.Host == "" {
 		return fmt.Errorf("host must not be empty")
 	}
 
-	if ts.Parameter.Command == "" {
+	if ts.Command == "" {
 		return fmt.Errorf("command must not be empty")
 	}
-
-	expect := stepParams.Get(out)
-
-	var (
-		tmp          Expect
-		expectParams []Expect
-	)
-
-	for _, item := range expect {
-		if err := json.Unmarshal(item.JSON(), &tmp); err != nil {
-			return fmt.Errorf("failed to deserialize %q parameters: %v", out, err)
-		}
-
-		expectParams = append(expectParams, tmp)
-	}
-
-	ts.expectStepParams = expectParams
 
 	return nil
 }
