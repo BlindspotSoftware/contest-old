@@ -4,7 +4,6 @@ go 1.18
 
 require (
 	github.com/9elements/fti v0.6.3-0.20230202152603-3135aca74685
-	github.com/aws/aws-sdk-go v1.41.14
 	github.com/benbjohnson/clock v1.1.0
 	github.com/blindspotsoftware/system-suite v0.1.0
 	github.com/bufbuild/connect-go v1.5.1
@@ -14,9 +13,7 @@ require (
 	github.com/google/go-safeweb v0.0.0-20211026121254-697f59a9d57f
 	github.com/google/goexpect v0.0.0-20200703111054-623d5ca06f56
 	github.com/google/uuid v1.3.0
-	github.com/insomniacslk/termhook v0.0.0-20210329134026-a267c978e590
 	github.com/insomniacslk/xjson v0.0.0-20210106140854-1589ccfd1a1a
-	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/pkg/sftp v1.13.4
 	github.com/pressly/goose v2.7.0+incompatible
 	github.com/prometheus/client_golang v1.12.2
@@ -25,7 +22,6 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
 	github.com/stretchr/testify v1.8.3
-	github.com/u-root/cpu v0.0.0-20210922222005-0a371c3a086d
 	github.com/u-root/u-root v7.0.0+incompatible
 	github.com/xaionaro-go/metrics v0.0.0-20210425194006-68050b337673
 	github.com/xaionaro-go/statuspage v0.0.0-20220629202611-97b44b308599
@@ -58,9 +54,6 @@ require (
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
-	github.com/hugelgupf/p9 v0.1.0 // indirect
-	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	github.com/kevinburke/ssh_config v1.1.0 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.11 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
@@ -70,7 +63,6 @@ require (
 	github.com/onsi/ginkgo v1.12.0 // indirect
 	github.com/onsi/gomega v1.9.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pkg/term v1.1.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/procfs v0.9.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
@@ -79,7 +71,6 @@ require (
 	github.com/sorenisanerd/gotty v1.3.1-0.20210604044157-f61763f7160b // indirect
 	github.com/stianeikeland/go-rpio v4.2.0+incompatible // indirect
 	github.com/stmcginnis/gofish v0.10.0 // indirect
-	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/ulikunitz/xz v0.5.10 // indirect
 	github.com/urfave/cli/v2 v2.24.2 // indirect
 	github.com/warthog618/gpiod v0.6.0 // indirect
