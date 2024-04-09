@@ -1,16 +1,24 @@
-package cpuload
+package robot
 
 import (
 	"encoding/json"
 	"fmt"
 	"time"
 
-	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
 	"github.com/linuxboot/contest/plugins/teststeps"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/transport"
+)
+
+// Name is the name used to look this plugin up.
+var Name = "Robot"
+
+const (
+	parametersKeyword = "parameters"
 )
 
 // We need a default timeout to avoid endless running tests.
@@ -19,29 +27,17 @@ const (
 	in             = "input"
 )
 
-type inputStepParams struct {
-	Transport struct {
-		Proto   string          `json:"proto"`
-		Options json.RawMessage `json:"options,omitempty"`
-	} `json:"transport,omitempty"`
-
-	Parameter struct {
-		FilePath   string   `json:"file_path"`
-		Args       []string `json:"args,omitempty"`
-		ReportOnly bool     `json:"report_only"`
-	} `json:"parameter"`
-
-	Options struct {
-		Timeout xjson.Duration `json:"timeout,omitempty"`
-	} `json:"options,omitempty"`
+type parameters struct {
+	FilePath   string   `json:"file_path"`
+	Args       []string `json:"args,omitempty"`
+	ReportOnly bool     `json:"report_only"`
 }
-
-// Name is the name used to look this plugin up.
-var Name = "Robot"
 
 // TestStep implementation for this teststep plugin
 type TestStep struct {
-	inputStepParams
+	parameters
+	transport transport.Parameters
+	options   options.Parameters
 }
 
 // Run executes the cmd step.
@@ -50,27 +46,37 @@ func (ts *TestStep) Run(ctx xcontext.Context, ch test.TestStepChannels, params t
 	return teststeps.ForEachTarget(Name, ctx, ch, tr.Run)
 }
 
-func (ts *TestStep) validateAndPopulate(stepParams test.TestStepParameters) error {
-	var input *test.Param
+func (ts *TestStep) populateParams(stepParams test.TestStepParameters) error {
+	var parameters, transportParams, optionsParams *test.Param
 
-	if input = stepParams.GetOne(in); input.IsEmpty() {
-		return fmt.Errorf("input parameter cannot be empty")
+	if parameters = stepParams.GetOne(parametersKeyword); parameters.IsEmpty() {
+		return fmt.Errorf("parameters cannot be empty")
 	}
 
-	if err := json.Unmarshal(input.JSON(), &ts.inputStepParams); err != nil {
-		return fmt.Errorf("failed to deserialize %q parameters: %v", in, err)
+	if err := json.Unmarshal(parameters.JSON(), &ts.parameters); err != nil {
+		return fmt.Errorf("failed to deserialize parameters: %v", err)
 	}
 
-	if ts.Parameter.FilePath == "" {
-		return fmt.Errorf("missing or empty 'file_path' parameter")
+	if transportParams = stepParams.GetOne(transport.Keyword); transportParams.IsEmpty() {
+		return fmt.Errorf("transport cannot be empty")
+	}
+
+	if err := json.Unmarshal(transportParams.JSON(), &ts.transport); err != nil {
+		return fmt.Errorf("failed to deserialize transport: %v", err)
+	}
+
+	optionsParams = stepParams.GetOne(options.Keyword)
+
+	if err := json.Unmarshal(optionsParams.JSON(), &ts.options); err != nil {
+		return fmt.Errorf("failed to deserialize options: %v", err)
 	}
 
 	return nil
 }
 
 // ValidateParameters validates the parameters associated to the TestStep
-func (ts *TestStep) ValidateParameters(_ xcontext.Context, params test.TestStepParameters) error {
-	return ts.validateAndPopulate(params)
+func (ts *TestStep) ValidateParameters(ctx xcontext.Context, params test.TestStepParameters) error {
+	return ts.populateParams(params)
 }
 
 // New initializes and returns a new HWaaS test step.

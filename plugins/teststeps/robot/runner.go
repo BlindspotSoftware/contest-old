@@ -1,22 +1,21 @@
-package cpuload
+package robot
 
 import (
 	"bytes"
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
-	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
 	"github.com/linuxboot/contest/plugins/teststeps/abstraction/transport"
 )
 
 const (
-	supportedProto = "local"
+	local = "local"
 )
 
 type TargetRunner struct {
@@ -34,30 +33,14 @@ func NewTargetRunner(ts *TestStep, ev testevent.Emitter) *TargetRunner {
 func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	var outputBuf strings.Builder
 
-	// limit the execution time if specified
-	var cancel xcontext.CancelFunc
-
-	if r.ts.Options.Timeout != 0 {
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
-		defer cancel()
-	} else {
-		r.ts.Options.Timeout = xjson.Duration(defaultTimeout)
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
-		defer cancel()
-	}
+	ctx, cancel := options.NewOptions(ctx, defaultTimeout, r.ts.options.Timeout)
+	defer cancel()
 
 	pe := test.NewParamExpander(target)
 
-	if r.ts.Transport.Proto != supportedProto {
-		err := fmt.Errorf("only '%s' is supported as protocol in this teststep", supportedProto)
-		outputBuf.WriteString(fmt.Sprintf("%v", err))
-
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
-	}
-
 	r.ts.writeTestStep(&outputBuf)
 
-	transport, err := transport.NewTransport(r.ts.Transport.Proto, r.ts.Transport.Options, pe)
+	transportProto, err := transport.NewTransport(r.ts.transport.Proto, []string{local}, r.ts.transport.Options, pe)
 	if err != nil {
 		err := fmt.Errorf("failed to create transport: %w", err)
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
@@ -65,7 +48,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
-	if err := r.ts.runRobot(ctx, &outputBuf, transport); err != nil {
+	if err := r.ts.runRobot(ctx, &outputBuf, transportProto); err != nil {
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
@@ -76,11 +59,11 @@ func (ts *TestStep) runRobot(ctx xcontext.Context, outputBuf *strings.Builder, t
 ) error {
 	var args []string
 
-	for _, arg := range ts.Parameter.Args {
+	for _, arg := range ts.Args {
 		args = append(args, "-v", arg)
 	}
 
-	args = append(args, ts.Parameter.FilePath)
+	args = append(args, ts.FilePath)
 
 	proc, err := transport.NewProcess(ctx, "/usr/local/bin/robot", args, "")
 	if err != nil {
@@ -119,7 +102,7 @@ func (ts *TestStep) runRobot(ctx xcontext.Context, outputBuf *strings.Builder, t
 		outcome = proc.Wait(ctx)
 	}
 
-	if outcome != nil && !ts.Parameter.ReportOnly {
+	if outcome != nil && !ts.ReportOnly {
 		outputBuf.WriteString(fmt.Sprintf("Tests failed: %v", outcome))
 
 		return fmt.Errorf("Tests failed: %v", outcome)
