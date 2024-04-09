@@ -15,42 +15,36 @@ const (
 
 // coreCmds is a helper function to call into the different core commands
 func (ts *TestStep) coreCmd(ctx xcontext.Context, stdoutMsg, stderrMsg *strings.Builder, transport transport.Transport) error {
-	if ts.Parameter.Args[0] != activate && ts.Parameter.Args[0] != deactivate {
+	if ts.Arg != activate && ts.Arg != deactivate {
 		return fmt.Errorf("Wrong argument for command '%s'. Your options for this command are: '%s' and '%s'.",
-			ts.Parameter.Command, activate, deactivate)
+			ts.Command, activate, deactivate)
 	}
 
-	if len(ts.Parameter.Args) >= 1 {
-		switch ts.Parameter.Args[0] {
-		case activate:
-			if err := ts.setCore(ctx, stdoutMsg, stderrMsg, transport, "--on"); err != nil {
-				return err
-			}
-
-			return nil
-
-		case deactivate:
-			if err := ts.setCore(ctx, stdoutMsg, stderrMsg, transport, "--off"); err != nil {
-				return err
-			}
-
-			return nil
-
-		default:
-			return fmt.Errorf("failed to execute the '%s' command. The argument '%s' is not valid. Possible values are '%s' and '%s'.",
-				core, ts.Parameter.Args[0], activate, deactivate)
+	switch ts.Arg {
+	case activate:
+		if err := ts.setCore(ctx, stdoutMsg, stderrMsg, transport, "--on"); err != nil {
+			return err
 		}
 
-	} else {
-		return fmt.Errorf("failed to execute the '%s' command. Args is empty. Possible values are '%s' and '%s'.",
-			core, activate, deactivate)
+		return nil
+
+	case deactivate:
+		if err := ts.setCore(ctx, stdoutMsg, stderrMsg, transport, "--off"); err != nil {
+			return err
+		}
+
+		return nil
+
+	default:
+		return fmt.Errorf("failed to execute the '%s' command. The argument '%s' is not valid. Possible values are '%s' and '%s'.",
+			core, ts.Arg, activate, deactivate)
 	}
 }
 
 func (ts *TestStep) setCore(ctx xcontext.Context, stdoutMsg, stderrMsg *strings.Builder,
 	transp transport.Transport, statusFlag string,
 ) error {
-	for _, core := range ts.Parameter.Cores {
+	for _, core := range ts.Cores {
 		if core == 0 {
 			stdoutMsg.WriteString("Stdout:\nCore '0' cannot be activated/deactivated.\n")
 			stderrMsg.WriteString("Stderr:\nCore '0' cannot be activated/deactivated.\n")
@@ -59,7 +53,7 @@ func (ts *TestStep) setCore(ctx xcontext.Context, stdoutMsg, stderrMsg *strings.
 		}
 
 		args := []string{
-			ts.Parameter.ToolPath,
+			ts.ToolPath,
 			cmd,
 			"switch",
 			fmt.Sprintf("--core=%d", core),
@@ -91,7 +85,7 @@ func (ts *TestStep) setCore(ctx xcontext.Context, stdoutMsg, stderrMsg *strings.
 
 		if outcome != nil {
 			stderrMsg.WriteString(fmt.Sprintf("Stderr:\n%s\n", string(stderr)))
-			return fmt.Errorf("Failed to '%s' core '%d': %v.", ts.Parameter.Args[0], core, outcome)
+			return fmt.Errorf("Failed to '%s' core '%d': %v.", ts.Arg, core, outcome)
 		}
 
 		stderrMsg.WriteString(fmt.Sprintf("Stderr:\n%s\n", string(stderr)))

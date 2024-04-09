@@ -11,10 +11,10 @@ import (
 // profileCmds is a helper function to call into the different core commands
 func (ts *TestStep) profileCmd(ctx xcontext.Context, stdoutMsg, stderrMsg *strings.Builder, transport transport.Transport) error {
 	args := []string{
-		ts.Parameter.ToolPath,
+		ts.ToolPath,
 		cmd,
 		"set-profile",
-		fmt.Sprintf("--profile=%s", ts.Parameter.Args[0]),
+		fmt.Sprintf("--profile=%s", ts.Arg),
 		jsonFlag,
 	}
 
@@ -42,7 +42,7 @@ func (ts *TestStep) profileCmd(ctx xcontext.Context, stdoutMsg, stderrMsg *strin
 
 	if outcome != nil {
 		stderrMsg.WriteString(fmt.Sprintf("Stderr:\n%s\n", string(stderr)))
-		return fmt.Errorf("Failed to set acpi platform profile to '%s': %v.", ts.Parameter.Args[0], outcome)
+		return fmt.Errorf("Failed to set acpi platform profile to '%s': %v.", ts.Arg, outcome)
 	}
 
 	stderrMsg.WriteString(fmt.Sprintf("Stderr:\n%s\n", string(stderr)))

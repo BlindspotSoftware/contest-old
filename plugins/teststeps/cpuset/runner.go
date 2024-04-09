@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
-	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
 	"github.com/linuxboot/contest/plugins/teststeps/abstraction/transport"
 )
 
@@ -39,30 +38,14 @@ func NewTargetRunner(ts *TestStep, ev testevent.Emitter) *TargetRunner {
 func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	var stdoutMsg, stderrMsg strings.Builder
 
-	// limit the execution time if specified
-	var cancel xcontext.CancelFunc
-
-	if r.ts.Options.Timeout != 0 {
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
-		defer cancel()
-	} else {
-		r.ts.Options.Timeout = xjson.Duration(defaultTimeout)
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
-		defer cancel()
-	}
+	ctx, cancel := options.NewOptions(ctx, defaultTimeout, r.ts.options.Timeout)
+	defer cancel()
 
 	pe := test.NewParamExpander(target)
 
-	if r.ts.Transport.Proto != supportedProto {
-		err := fmt.Errorf("only %q is supported as protocol in this teststep", supportedProto)
-		stderrMsg.WriteString(fmt.Sprintf("%v", err))
-
-		return emitStderr(ctx, EventStderr, stderrMsg.String(), target, r.ev, err)
-	}
-
 	r.ts.writeTestStep(&stdoutMsg, &stderrMsg)
 
-	transport, err := transport.NewTransport(r.ts.Transport.Proto, r.ts.Transport.Options, pe)
+	transportProto, err := transport.NewTransport(r.ts.transport.Proto, []string{supportedProto}, r.ts.transport.Options, pe)
 	if err != nil {
 		err := fmt.Errorf("failed to create transport: %w", err)
 		stderrMsg.WriteString(fmt.Sprintf("%v", err))
@@ -70,23 +53,23 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		return emitStderr(ctx, EventStderr, stderrMsg.String(), target, r.ev, err)
 	}
 
-	switch r.ts.Parameter.Command {
+	switch r.ts.Command {
 	case core:
-		if err := r.ts.coreCmd(ctx, &stdoutMsg, &stderrMsg, transport); err != nil {
+		if err := r.ts.coreCmd(ctx, &stdoutMsg, &stderrMsg, transportProto); err != nil {
 			stderrMsg.WriteString(fmt.Sprintf("%v\n", err))
 
 			return emitStderr(ctx, EventStderr, stderrMsg.String(), target, r.ev, err)
 		}
 
 	case profile:
-		if err := r.ts.profileCmd(ctx, &stdoutMsg, &stderrMsg, transport); err != nil {
+		if err := r.ts.profileCmd(ctx, &stdoutMsg, &stderrMsg, transportProto); err != nil {
 			stderrMsg.WriteString(fmt.Sprintf("%v\n", err))
 
 			return emitStderr(ctx, EventStderr, stderrMsg.String(), target, r.ev, err)
 		}
 
 	default:
-		err := fmt.Errorf("Command '%s' is not valid. Possible values are '%s'.", r.ts.Parameter.Command, core)
+		err := fmt.Errorf("Command '%s' is not valid. Possible values are '%s'.", r.ts.Command, core)
 		stderrMsg.WriteString(fmt.Sprintf("%v\n", err))
 
 		return emitStderr(ctx, EventStderr, stderrMsg.String(), target, r.ev, err)
