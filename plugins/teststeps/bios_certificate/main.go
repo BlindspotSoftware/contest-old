@@ -22,7 +22,6 @@ const (
 	defaultTimeout time.Duration = time.Minute
 )
 
-
 type parameters struct {
 	Command string `json:"command"`
 
@@ -43,7 +42,7 @@ var Name = "Bios Certificate Management"
 type TestStep struct {
 	parameters
 	transport transport.Parameters
-	options options.Parameters
+	options   options.Parameters
 }
 
 // Run executes the step.
@@ -63,7 +62,9 @@ func (ts *TestStep) populateParams(stepParams test.TestStepParameters) error {
 		return fmt.Errorf("failed to deserialize parameters: %v", err)
 	}
 
-	transportParams = stepParams.GetOne(transport.Keyword)
+	if transportParams = stepParams.GetOne(transport.Keyword); transportParams.IsEmpty() {
+		return fmt.Errorf("transport cannot be empty")
+	}
 
 	if err := json.Unmarshal(transportParams.JSON(), &ts.transport); err != nil {
 		return fmt.Errorf("failed to deserialize transport: %v", err)

@@ -70,7 +70,9 @@ func (ts *TestStep) validateAndPopulate(stepParams test.TestStepParameters) erro
 		return fmt.Errorf("failed to deserialize parameters: %v", err)
 	}
 
-	transportParams = stepParams.GetOne(transport.Keyword)
+	if transportParams = stepParams.GetOne(transport.Keyword); transportParams.IsEmpty() {
+		return fmt.Errorf("transport cannot be empty")
+	}
 
 	if err := json.Unmarshal(transportParams.JSON(), &ts.transport); err != nil {
 		return fmt.Errorf("failed to deserialize transport: %v", err)
