@@ -1,4 +1,4 @@
-package cpuload
+package robot
 
 import (
 	"encoding/json"
@@ -50,29 +50,29 @@ func emitEvent(ctx xcontext.Context, name event.Name, payload interface{}, tgt *
 }
 
 // Function to format teststep information and append it to a string builder.
-func (ts *TestStep) writeTestStep(builders ...*strings.Builder) {
+func (ts TestStep) writeTestStep(builders ...*strings.Builder) {
 	for _, builder := range builders {
 		builder.WriteString("Input Parameter:\n")
 		builder.WriteString("  Transport:\n")
-		builder.WriteString(fmt.Sprintf("    Protocol: %s\n", ts.Transport.Proto))
+		builder.WriteString(fmt.Sprintf("    Protocol: %s\n", ts.transport.Proto))
 		builder.WriteString("    Options: \n")
-		optionsJSON, err := json.MarshalIndent(ts.Transport.Options, "", "    ")
+		optionsJSON, err := json.MarshalIndent(ts.transport.Options, "", "    ")
 		if err != nil {
-			builder.WriteString(fmt.Sprintf("%v", ts.Transport.Options))
+			builder.WriteString(fmt.Sprintf("%v", ts.transport.Options))
 		} else {
 			builder.WriteString(string(optionsJSON))
 		}
 		builder.WriteString("\n")
 
 		builder.WriteString("  Parameter:\n")
-		builder.WriteString(fmt.Sprintf("    FilePath: %s\n", ts.Parameter.FilePath))
-		builder.WriteString(fmt.Sprintf("    Args: %v\n", ts.Parameter.Args))
-		builder.WriteString(fmt.Sprintf("    ReportOnly: %v\n", ts.Parameter.ReportOnly))
+		builder.WriteString(fmt.Sprintf("    FilePath: %s\n", ts.FilePath))
+		builder.WriteString(fmt.Sprintf("    Args: %v\n", ts.Args))
+		builder.WriteString(fmt.Sprintf("    ReportOnly: %v\n", ts.ReportOnly))
 
 		builder.WriteString("\n")
 
 		builder.WriteString("  Options:\n")
-		builder.WriteString(fmt.Sprintf("    Timeout: %s\n", time.Duration(ts.Options.Timeout)))
+		builder.WriteString(fmt.Sprintf("    Timeout: %s\n", time.Duration(ts.options.Timeout)))
 
 		builder.WriteString("Default Values:\n")
 		builder.WriteString(fmt.Sprintf("  Timeout: %s\n", defaultTimeout))
@@ -80,11 +80,11 @@ func (ts *TestStep) writeTestStep(builders ...*strings.Builder) {
 		builder.WriteString("Executing Command:\n")
 
 		cmd := "robot"
-		for _, arg := range ts.Parameter.Args {
+		for _, arg := range ts.Args {
 			cmd += fmt.Sprintf(" -v %s", arg)
 		}
 
-		builder.WriteString(fmt.Sprintf("%s %s", cmd, ts.Parameter.FilePath))
+		builder.WriteString(fmt.Sprintf("%s %s", cmd, ts.FilePath))
 
 		builder.WriteString("\n\n")
 	}
