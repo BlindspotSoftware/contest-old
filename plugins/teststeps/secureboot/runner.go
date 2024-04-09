@@ -8,18 +8,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
 	"github.com/linuxboot/contest/plugins/teststeps/abstraction/transport"
 )
 
 const (
-	supportedProto = "ssh"
-	sudo           = "sudo"
-	jsonFlag       = "--json"
+	ssh      = "ssh"
+	sudo     = "sudo"
+	jsonFlag = "--json"
 )
 
 type outcome error
@@ -46,26 +46,12 @@ func NewTargetRunner(ts *TestStep, ev testevent.Emitter) *TargetRunner {
 func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	var outputBuf strings.Builder
 
-	// limit the execution time if specified
-	var cancel xcontext.CancelFunc
-
-	if r.ts.Options.Timeout == 0 {
-		r.ts.Options.Timeout = xjson.Duration(defaultTimeout)
-	}
-
-	ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
+	ctx, cancel := options.NewOptions(ctx, defaultTimeout, r.ts.options.Timeout)
 	defer cancel()
 
 	pe := test.NewParamExpander(target)
 
-	if r.ts.inputStepParams.Transport.Proto != supportedProto {
-		err := fmt.Errorf("only %q is supported as protocol in this teststep", supportedProto)
-		outputBuf.WriteString(fmt.Sprintf("%v", err))
-
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
-	}
-
-	transportProto, err := transport.NewTransport(r.ts.inputStepParams.Transport.Proto, r.ts.inputStepParams.Transport.Options, pe)
+	transportProto, err := transport.NewTransport(r.ts.transport.Proto, []string{ssh}, r.ts.transport.Options, pe)
 	if err != nil {
 		err := fmt.Errorf("failed to create transport: %w", err)
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
@@ -73,40 +59,45 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
-	switch r.ts.inputStepParams.Parameter.Command {
+	switch r.ts.Command {
 	case "enroll-key":
 		if _, err = r.ts.enrollKeys(ctx, &outputBuf, transportProto); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
 			return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 		}
+
 	case "rotate-key":
 		if _, err = r.ts.rotateKeys(ctx, &outputBuf, transportProto); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
 			return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 		}
+
 	case "custom-key":
 		if _, err = r.ts.customKey(ctx, &outputBuf, transportProto); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
 			return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 		}
-	case "reset":
 
+	case "reset":
 		if _, err = r.ts.reset(ctx, &outputBuf, transportProto); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
 			return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 		}
+
 	case "status":
-		if _, err = r.ts.getStatus(ctx, &outputBuf, transportProto, r.ts.expect.SetupMode, r.ts.expect.SecureBoot); err != nil {
+		if _, err = r.ts.getStatus(ctx, &outputBuf, transportProto, r.ts.Expect.SetupMode, r.ts.Expect.SecureBoot); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
 			return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 		}
+
 	default:
-		err := fmt.Errorf("Command '%s' is not valid. Possible values are 'status', 'enroll-key', 'rotate-key', 'reset' and 'custom-key'.", r.ts.Parameter.Command)
+		err := fmt.Errorf("Command '%s' is not valid. Possible values are 'status', 'enroll-key', 'rotate-key', 'reset' and 'custom-key'.",
+			r.ts.Command)
 		outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
 		return err
@@ -197,7 +188,7 @@ func (ts *TestStep) getStatus(
 	ctx xcontext.Context, outputBuf *strings.Builder,
 	transport transport.Transport, expectSetupMode, expectSecureBoot bool,
 ) (outcome, error) {
-	writeStatusTestStep(ts, outputBuf)
+	ts.writeStatusTestStep(outputBuf)
 
 	outcome, status, err := ts.status(ctx, outputBuf, transport)
 	if err != nil {
@@ -210,18 +201,18 @@ func (ts *TestStep) getStatus(
 }
 
 func (ts *TestStep) createKeys(ctx xcontext.Context, outputBuf *strings.Builder, transport transport.Transport) (outcome, error) {
-	_, _, outcome, err := execCmdWithArgs(ctx, true, ts.inputStepParams.Parameter.ToolPath, []string{"create-keys"}, outputBuf, transport)
+	_, _, outcome, err := execCmdWithArgs(ctx, true, ts.ToolPath, []string{"create-keys"}, outputBuf, transport)
 
 	return outcome, err
 }
 
 func (ts *TestStep) status(ctx xcontext.Context, outputBuf *strings.Builder, transport transport.Transport) (outcome, Status, error) {
-	stdout, stderr, outcome, err := execCmdWithArgs(ctx, true, ts.inputStepParams.Parameter.ToolPath, []string{"status", jsonFlag}, outputBuf, transport)
+	stdout, stderr, outcome, err := execCmdWithArgs(ctx, true, ts.ToolPath, []string{"status", jsonFlag}, outputBuf, transport)
 	if err != nil {
 		return nil, Status{}, err
 	}
 
-	status, err := parseStatus(outputBuf, stdout, stderr)
+	status, err := parseStatus(stdout, stderr)
 	if err != nil {
 		return nil, Status{}, err
 	}
@@ -243,7 +234,7 @@ func checkStatus(outputBuf *strings.Builder, status Status, expectSetupMode, exp
 	return nil
 }
 
-func parseStatus(outputBuf *strings.Builder, stdout, stderr string) (Status, error) {
+func parseStatus(stdout, stderr string) (Status, error) {
 	status := Status{}
 	if len(stdout) != 0 {
 		if err := json.Unmarshal([]byte(stdout), &status); err != nil {
@@ -262,9 +253,9 @@ func (ts *TestStep) reset(
 	ctx xcontext.Context, outputBuf *strings.Builder,
 	transport transport.Transport,
 ) (outcome, error) {
-	writeResetTestStep(ts, outputBuf)
+	ts.writeResetTestStep(outputBuf)
 
-	if err := supportedHierarchy(ts.inputStepParams.Parameter.Hierarchy); err != nil {
+	if err := supportedHierarchy(ts.Hierarchy); err != nil {
 		return nil, err
 	}
 
@@ -276,25 +267,25 @@ func (ts *TestStep) reset(
 		return outcome, err
 	}
 
-	args := []string{"reset", fmt.Sprintf("--partial=%v", ts.inputStepParams.Parameter.Hierarchy)}
+	args := []string{"reset", fmt.Sprintf("--partial=%v", ts.Hierarchy)}
 
-	if ts.Parameter.CertFile != "" {
-		args = append(args, fmt.Sprintf("--cert-files %s", ts.Parameter.CertFile))
+	if ts.CertFile != "" {
+		args = append(args, fmt.Sprintf("--cert-files %s", ts.CertFile))
 	}
 
-	_, stderr, outcome, err := execCmdWithArgs(ctx, true, ts.inputStepParams.Parameter.ToolPath, args, outputBuf, transport)
+	_, stderr, outcome, err := execCmdWithArgs(ctx, true, ts.ToolPath, args, outputBuf, transport)
 	if err != nil {
 		return outcome, err
 	}
 
-	switch ts.expect.ShouldFail {
+	switch ts.Expect.ShouldFail {
 	case false:
 		if len(stderr) != 0 {
-			return outcome, fmt.Errorf("failed unexpectedly to enroll secure boot keys for hierarchy %s: %v", ts.inputStepParams.Parameter.Hierarchy, string(stderr))
+			return outcome, fmt.Errorf("failed unexpectedly to enroll secure boot keys for hierarchy %s: %v", ts.Hierarchy, string(stderr))
 		}
 	case true:
 		if len(stderr) == 0 {
-			return outcome, fmt.Errorf("reset secure boot keys for hierarchy %s, but expected to fail", ts.inputStepParams.Parameter.Hierarchy)
+			return outcome, fmt.Errorf("reset secure boot keys for hierarchy %s, but expected to fail", ts.Hierarchy)
 		}
 	}
 
@@ -318,22 +309,22 @@ func (ts *TestStep) importKeys(
 	)
 
 	if pair {
-		if ts.Parameter.CertFile == "" || ts.Parameter.KeyFile == "" {
+		if ts.CertFile == "" || ts.KeyFile == "" {
 			return outcome, fmt.Errorf("no files provided")
 		}
 
-		switch ts.Parameter.Hierarchy {
+		switch ts.Hierarchy {
 		case "dbx":
-			args = append(args, fmt.Sprintf("--dbx-key=%v", ts.inputStepParams.Parameter.KeyFile), fmt.Sprintf("--dbx-cert=%v", ts.inputStepParams.Parameter.CertFile))
+			args = append(args, fmt.Sprintf("--dbx-key=%v", ts.KeyFile), fmt.Sprintf("--dbx-cert=%v", ts.CertFile))
 		case "db":
-			args = append(args, fmt.Sprintf("--db-key=%v", ts.inputStepParams.Parameter.KeyFile), fmt.Sprintf("--db-cert=%v", ts.inputStepParams.Parameter.CertFile))
+			args = append(args, fmt.Sprintf("--db-key=%v", ts.KeyFile), fmt.Sprintf("--db-cert=%v", ts.CertFile))
 		case "KEK":
-			args = append(args, fmt.Sprintf("--kek-key=%v", ts.inputStepParams.Parameter.KeyFile), fmt.Sprintf("--kek-cert=%v", ts.inputStepParams.Parameter.CertFile))
+			args = append(args, fmt.Sprintf("--kek-key=%v", ts.KeyFile), fmt.Sprintf("--kek-cert=%v", ts.CertFile))
 		case "PK":
-			args = append(args, fmt.Sprintf("--pk-key=%v", ts.inputStepParams.Parameter.KeyFile), fmt.Sprintf("--pk-cert=%v", ts.inputStepParams.Parameter.CertFile))
+			args = append(args, fmt.Sprintf("--pk-key=%v", ts.KeyFile), fmt.Sprintf("--pk-cert=%v", ts.CertFile))
 		}
 
-		_, stderr, outcome, err = execCmdWithArgs(ctx, true, ts.Parameter.ToolPath, args, outputBuf, transport)
+		_, stderr, outcome, err = execCmdWithArgs(ctx, true, ts.ToolPath, args, outputBuf, transport)
 		if err != nil {
 			return outcome, err
 		}
@@ -345,24 +336,24 @@ func (ts *TestStep) importKeys(
 	}
 
 	if signingPair {
-		if ts.Parameter.SigningCertFile == "" || ts.Parameter.SigningKeyFile == "" {
+		if ts.SigningCertFile == "" || ts.SigningKeyFile == "" {
 			return outcome, fmt.Errorf("no signing files provided")
 		}
 
 		args := importArgs
 
-		switch ts.Parameter.Hierarchy {
+		switch ts.Hierarchy {
 		case "dbx":
-			args = append(args, fmt.Sprintf("--kek-key=%v", ts.inputStepParams.Parameter.SigningKeyFile), fmt.Sprintf("--kek-cert=%v", ts.inputStepParams.Parameter.SigningCertFile))
+			args = append(args, fmt.Sprintf("--kek-key=%v", ts.SigningKeyFile), fmt.Sprintf("--kek-cert=%v", ts.SigningCertFile))
 		case "db":
-			args = append(args, fmt.Sprintf("--kek-key=%v", ts.inputStepParams.Parameter.SigningKeyFile), fmt.Sprintf("--kek-cert=%v", ts.inputStepParams.Parameter.SigningCertFile))
+			args = append(args, fmt.Sprintf("--kek-key=%v", ts.SigningKeyFile), fmt.Sprintf("--kek-cert=%v", ts.SigningCertFile))
 		case "KEK":
-			args = append(args, fmt.Sprintf("--pk-key=%v", ts.inputStepParams.Parameter.SigningKeyFile), fmt.Sprintf("--pk-cert=%v", ts.inputStepParams.Parameter.SigningCertFile))
+			args = append(args, fmt.Sprintf("--pk-key=%v", ts.SigningKeyFile), fmt.Sprintf("--pk-cert=%v", ts.SigningCertFile))
 		case "PK":
-			args = append(args, fmt.Sprintf("--pk-key=%v", ts.inputStepParams.Parameter.SigningKeyFile), fmt.Sprintf("--pk-cert=%v", ts.inputStepParams.Parameter.SigningCertFile))
+			args = append(args, fmt.Sprintf("--pk-key=%v", ts.SigningKeyFile), fmt.Sprintf("--pk-cert=%v", ts.SigningCertFile))
 		}
 
-		_, stderr, outcome, err := execCmdWithArgs(ctx, true, ts.Parameter.ToolPath, args, outputBuf, transport)
+		_, stderr, outcome, err := execCmdWithArgs(ctx, true, ts.ToolPath, args, outputBuf, transport)
 		if err != nil {
 			return outcome, err
 		}
@@ -379,29 +370,29 @@ func (ts *TestStep) enrollKeys(
 	ctx xcontext.Context, outputBuf *strings.Builder,
 	transport transport.Transport,
 ) (outcome, error) {
-	if err := supportedHierarchy(ts.inputStepParams.Parameter.Hierarchy); err != nil {
+	if err := supportedHierarchy(ts.Hierarchy); err != nil {
 		return nil, err
 	}
 
-	if ts.Parameter.KeyFile == "" {
+	if ts.KeyFile == "" {
 		return nil, fmt.Errorf("path to keyfile cannot be empty")
 	}
 
-	if ts.Parameter.CertFile == "" {
+	if ts.CertFile == "" {
 		return nil, fmt.Errorf("path to certificate file cannot be empty")
 	}
 
-	if ts.Parameter.Hierarchy != "PK" {
-		if ts.Parameter.SigningKeyFile == "" {
+	if ts.Hierarchy != "PK" {
+		if ts.SigningKeyFile == "" {
 			return nil, fmt.Errorf("path to signing keyfile cannot be empty")
 		}
 
-		if ts.Parameter.SigningCertFile == "" {
+		if ts.SigningCertFile == "" {
 			return nil, fmt.Errorf("path to signing certificate file cannot be empty")
 		}
 	}
 
-	writeEnrollKeysTestStep(ts, outputBuf)
+	ts.writeEnrollKeysTestStep(outputBuf)
 
 	if outcome, err := ts.checkInstalled(ctx, outputBuf, transport); err != nil {
 		return outcome, err
@@ -417,26 +408,26 @@ func (ts *TestStep) enrollKeys(
 	args := []string{
 		"enroll-keys",
 		"--microsoft",
-		fmt.Sprintf("--partial=%v", ts.inputStepParams.Parameter.Hierarchy),
+		fmt.Sprintf("--partial=%v", ts.Hierarchy),
 	}
 
-	if ts.Parameter.Append {
+	if ts.Append {
 		args = append(args, "--append")
 	}
 
-	_, stderr, outcome, err := execCmdWithArgs(ctx, true, ts.inputStepParams.Parameter.ToolPath, args, outputBuf, transport)
+	_, stderr, outcome, err := execCmdWithArgs(ctx, true, ts.ToolPath, args, outputBuf, transport)
 	if err != nil {
 		return outcome, err
 	}
 
-	switch ts.expect.ShouldFail {
+	switch ts.Expect.ShouldFail {
 	case false:
 		if len(stderr) != 0 {
-			return outcome, fmt.Errorf("failed unexpectedly to enroll secure boot keys for hierarchy %s: %v", ts.inputStepParams.Parameter.Hierarchy, string(stderr))
+			return outcome, fmt.Errorf("failed unexpectedly to enroll secure boot keys for hierarchy %s: %v", ts.Hierarchy, string(stderr))
 		}
 	case true:
 		if len(stderr) == 0 {
-			return outcome, fmt.Errorf("enrolled secure boot keys for hierarchy %s, but expected to fail", ts.inputStepParams.Parameter.Hierarchy)
+			return outcome, fmt.Errorf("enrolled secure boot keys for hierarchy %s, but expected to fail", ts.Hierarchy)
 		}
 	}
 
@@ -450,25 +441,25 @@ func (ts *TestStep) rotateKeys(
 	ctx xcontext.Context, outputBuf *strings.Builder,
 	transport transport.Transport,
 ) (outcome, error) {
-	writeRotateKeysTestStep(ts, outputBuf)
+	ts.writeRotateKeysTestStep(outputBuf)
 
-	if err := supportedHierarchy(ts.inputStepParams.Parameter.Hierarchy); err != nil {
+	if err := supportedHierarchy(ts.Hierarchy); err != nil {
 		return nil, err
 	}
 
-	if ts.Parameter.KeyFile == "" {
+	if ts.KeyFile == "" {
 		return nil, fmt.Errorf("path to keyfile cannot be empty")
 	}
 
-	if ts.Parameter.CertFile == "" {
+	if ts.CertFile == "" {
 		return nil, fmt.Errorf("path to certificate file cannot be empty")
 	}
 
-	if ts.Parameter.SigningKeyFile == "" {
+	if ts.SigningKeyFile == "" {
 		return nil, fmt.Errorf("path to signing keyfile cannot be empty")
 	}
 
-	if ts.Parameter.SigningCertFile == "" {
+	if ts.SigningCertFile == "" {
 		return nil, fmt.Errorf("path to signing certificate file cannot be empty")
 	}
 
@@ -486,24 +477,24 @@ func (ts *TestStep) rotateKeys(
 
 	args := []string{
 		"rotate-keys",
-		fmt.Sprintf("--partial=%v", ts.inputStepParams.Parameter.Hierarchy),
-		fmt.Sprintf("--key-file=%v", ts.inputStepParams.Parameter.KeyFile),
-		fmt.Sprintf("--cert-file=%v", ts.inputStepParams.Parameter.CertFile),
+		fmt.Sprintf("--partial=%v", ts.Hierarchy),
+		fmt.Sprintf("--key-file=%v", ts.KeyFile),
+		fmt.Sprintf("--cert-file=%v", ts.CertFile),
 	}
 
-	_, stderr, outcome, err := execCmdWithArgs(ctx, true, ts.inputStepParams.Parameter.ToolPath, args, outputBuf, transport)
+	_, stderr, outcome, err := execCmdWithArgs(ctx, true, ts.ToolPath, args, outputBuf, transport)
 	if err != nil {
 		return outcome, err
 	}
 
-	switch ts.expect.ShouldFail {
+	switch ts.Expect.ShouldFail {
 	case false:
 		if len(stderr) != 0 {
-			return outcome, fmt.Errorf("failed unexpectedly to rotate secure boot keys for hierarchy %s: %v", ts.inputStepParams.Parameter.Hierarchy, string(stderr))
+			return outcome, fmt.Errorf("failed unexpectedly to rotate secure boot keys for hierarchy %s: %v", ts.Hierarchy, string(stderr))
 		}
 	case true:
 		if len(stderr) == 0 {
-			return outcome, fmt.Errorf("rotated secure boot keys for hierarchy %s, but expected to fail", ts.inputStepParams.Parameter.Hierarchy)
+			return outcome, fmt.Errorf("rotated secure boot keys for hierarchy %s, but expected to fail", ts.Hierarchy)
 		}
 	}
 
@@ -517,13 +508,13 @@ func (ts *TestStep) customKey(
 	ctx xcontext.Context, outputBuf *strings.Builder,
 	transport transport.Transport,
 ) (outcome, error) {
-	writeCustomKeyTestStep(ts, outputBuf)
+	ts.writeCustomKeyTestStep(outputBuf)
 
-	if err := supportedHierarchy(ts.inputStepParams.Parameter.Hierarchy); err != nil {
+	if err := supportedHierarchy(ts.Hierarchy); err != nil {
 		return nil, err
 	}
 
-	if ts.Parameter.CustomKeyFile == "" {
+	if ts.CustomKeyFile == "" {
 		return nil, fmt.Errorf("path to custom keyfile cannot be empty")
 	}
 
@@ -537,23 +528,23 @@ func (ts *TestStep) customKey(
 
 	args := []string{
 		"enroll-keys",
-		fmt.Sprintf("--partial=%v", ts.inputStepParams.Parameter.Hierarchy),
-		fmt.Sprintf("--custom-bytes=%v", ts.inputStepParams.Parameter.CustomKeyFile),
+		fmt.Sprintf("--partial=%v", ts.Hierarchy),
+		fmt.Sprintf("--custom-bytes=%v", ts.CustomKeyFile),
 	}
 
-	_, stderr, outcome, err := execCmdWithArgs(ctx, true, ts.inputStepParams.Parameter.ToolPath, args, outputBuf, transport)
+	_, stderr, outcome, err := execCmdWithArgs(ctx, true, ts.ToolPath, args, outputBuf, transport)
 	if err != nil {
 		return outcome, err
 	}
 
-	switch ts.expect.ShouldFail {
+	switch ts.Expect.ShouldFail {
 	case false:
 		if len(stderr) != 0 {
-			return outcome, fmt.Errorf("failed unexpectedly to rotate secure boot keys for hierarchy %s: %v", ts.inputStepParams.Parameter.Hierarchy, string(stderr))
+			return outcome, fmt.Errorf("failed unexpectedly to rotate secure boot keys for hierarchy %s: %v", ts.Hierarchy, string(stderr))
 		}
 	case true:
 		if len(stderr) == 0 {
-			return outcome, fmt.Errorf("rotated secure boot keys for hierarchy %s, but expected to fail", ts.inputStepParams.Parameter.Hierarchy)
+			return outcome, fmt.Errorf("rotated secure boot keys for hierarchy %s, but expected to fail", ts.Hierarchy)
 		}
 	}
 
