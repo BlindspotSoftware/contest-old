@@ -5,20 +5,19 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
-	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
 	"github.com/linuxboot/contest/plugins/teststeps/abstraction/transport"
 )
 
 const (
-	supportedProto = "ssh"
-	privileged     = "sudo"
-	tool           = "s0ix-selftest-tool"
+	ssh        = "ssh"
+	privileged = "sudo"
+	tool       = "s0ix-selftest-tool"
 )
 
 type TargetRunner struct {
@@ -36,30 +35,14 @@ func NewTargetRunner(ts *TestStep, ev testevent.Emitter) *TargetRunner {
 func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	var outputBuf strings.Builder
 
-	// limit the execution time if specified
-	var cancel xcontext.CancelFunc
-
-	if r.ts.Options.Timeout != 0 {
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
-		defer cancel()
-	} else {
-		r.ts.Options.Timeout = xjson.Duration(defaultTimeout)
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
-		defer cancel()
-	}
+	ctx, cancel := options.NewOptions(ctx, defaultTimeout, r.ts.options.Timeout)
+	defer cancel()
 
 	pe := test.NewParamExpander(target)
 
-	if r.ts.Transport.Proto != supportedProto {
-		err := fmt.Errorf("only '%s' is supported as protocol in this teststep", supportedProto)
-		outputBuf.WriteString(fmt.Sprintf("%v", err))
-
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
-	}
-
 	r.ts.writeTestStep(&outputBuf)
 
-	transport, err := transport.NewTransport(r.ts.Transport.Proto, r.ts.Transport.Options, pe)
+	transportProto, err := transport.NewTransport(r.ts.transport.Proto, []string{ssh}, r.ts.transport.Options, pe)
 	if err != nil {
 		err := fmt.Errorf("failed to create transport: %w", err)
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
@@ -67,7 +50,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
-	if err := r.ts.runS0ixSelftest(ctx, &outputBuf, transport); err != nil {
+	if err := r.ts.runS0ixSelftest(ctx, &outputBuf, transportProto); err != nil {
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
 
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
@@ -117,7 +100,7 @@ func (ts *TestStep) runS0ixSelftest(ctx xcontext.Context, outputBuf *strings.Bui
 		return fmt.Errorf("Failed to run s0ix-selftest: %v.", outcome)
 	}
 
-	if err := ts.parseOutput(ctx, stdout); err != nil {
+	if err := ts.parseOutput(stdout); err != nil {
 		return err
 	}
 
@@ -152,7 +135,7 @@ func readBuffer(r io.Reader) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (ts *TestStep) parseOutput(ctx xcontext.Context, stdout []byte) error {
+func (ts *TestStep) parseOutput(stdout []byte) error {
 	if strings.Contains(string(stdout), "Congratulations!") {
 		return nil
 	} else {
