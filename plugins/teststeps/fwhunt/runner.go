@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
-	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/xcontext"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
 	"github.com/linuxboot/contest/plugins/teststeps/abstraction/transport"
 )
 
@@ -37,19 +36,10 @@ func NewTargetRunner(ts *TestStep, ev testevent.Emitter) *TargetRunner {
 func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	var outputBuf strings.Builder
 
-	// limit the execution time if specified
-	var cancel xcontext.CancelFunc
+	ctx, cancel := options.NewOptions(ctx, defaultTimeout, r.ts.options.Timeout)
+	defer cancel()
 
-	if r.ts.Options.Timeout != 0 {
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
-		defer cancel()
-	} else {
-		r.ts.Options.Timeout = xjson.Duration(defaultTimeout)
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
-		defer cancel()
-	}
-
-	writeTestStep(r.ts, &outputBuf)
+	r.ts.writeTestStep(&outputBuf)
 
 	transport := transport.NewLocalTransport()
 
@@ -70,15 +60,15 @@ func (ts *TestStep) runFwHunt(ctx xcontext.Context, outputBuf *strings.Builder, 
 		"scan-firmware",
 	}
 
-	if len(ts.Parameter.RulesDir) == 0 && len(ts.Parameter.Rules) == 0 {
+	if len(ts.RulesDir) == 0 && len(ts.Rules) == 0 {
 		args = append(args, "--rules_dir", rulesPath)
 	}
 
-	for _, rulesDir := range ts.Parameter.RulesDir {
+	for _, rulesDir := range ts.RulesDir {
 		args = append(args, "--rules_dir", fmt.Sprintf("%s/%s", rulesPath, rulesDir))
 	}
 
-	for _, rule := range ts.Parameter.Rules {
+	for _, rule := range ts.Rules {
 		args = append(args, "--rule", fmt.Sprintf("%s/%s", rulesPath, rule))
 	}
 
@@ -120,7 +110,7 @@ func (ts *TestStep) runFwHunt(ctx xcontext.Context, outputBuf *strings.Builder, 
 		}
 	}
 
-	if len(stderr) > 0 && !ts.Parameter.ReportOnly {
+	if len(stderr) > 0 && !ts.ReportOnly {
 		return fmt.Errorf("Found atleast one threat!")
 	}
 
