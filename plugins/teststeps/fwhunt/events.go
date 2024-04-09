@@ -50,22 +50,22 @@ func emitEvent(ctx xcontext.Context, name event.Name, payload interface{}, tgt *
 }
 
 // Function to format teststep information and append it to a string builder.
-func writeTestStep(step *TestStep, builders ...*strings.Builder) {
+func (ts TestStep) writeTestStep(builders ...*strings.Builder) {
 	for _, builder := range builders {
 		builder.WriteString("Input Parameter:\n")
 		builder.WriteString("  Parameter:\n")
 		builder.WriteString("    RulesDirs:\n")
-		for i, rulesdir := range step.Parameter.RulesDir {
+		for i, rulesdir := range ts.RulesDir {
 			builder.WriteString(fmt.Sprintf("      RuleDir %d: %s\n", i+1, rulesdir))
 		}
 		builder.WriteString("    Rules:\n")
-		for i, rules := range step.Parameter.Rules {
+		for i, rules := range ts.Rules {
 			builder.WriteString(fmt.Sprintf("      Rule %d: %s\n", i+1, rules))
 		}
 		builder.WriteString("\n")
 
 		builder.WriteString("  Options:\n")
-		builder.WriteString(fmt.Sprintf("    Timeout: %s\n", time.Duration(step.Options.Timeout)))
+		builder.WriteString(fmt.Sprintf("    Timeout: %s\n", time.Duration(ts.options.Timeout)))
 		builder.WriteString("\n\n")
 		builder.WriteString("\n\n")
 	}
