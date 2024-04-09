@@ -6,11 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/target"
-	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
 )
 
 type TargetRunner struct {
@@ -32,75 +31,53 @@ func NewTargetRunner(ts *TestStep, ev testevent.Emitter) *TargetRunner {
 func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	var outputBuf strings.Builder
 
-	// limit the execution time if specified
-	var cancel xcontext.CancelFunc
+	ctx, cancel := options.NewOptions(ctx, defaultTimeout, r.ts.options.Timeout)
+	defer cancel()
 
-	if r.ts.Options.Timeout != 0 {
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
-		defer cancel()
-	} else {
-		r.ts.Options.Timeout = xjson.Duration(defaultTimeout)
-		ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
-		defer cancel()
+	r.ts.writeTestStep(&outputBuf)
+
+	if r.ts.Port == 0 {
+		r.ts.Port = defaultPort
 	}
-
-	pe := test.NewParamExpander(target)
-
-	var inputParams inputStepParams
-
-	if err := pe.ExpandObject(r.ts.inputStepParams, &inputParams); err != nil {
-		err := fmt.Errorf("failed to expand input parameter: %v", err)
-		outputBuf.WriteString(fmt.Sprintf("%v\n", err))
-
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
-	}
-
-	if inputParams.Parameter.Port == 0 {
-		inputParams.Parameter.Port = defaultPort
-	}
-
-	writeTestStep(r.ts, &outputBuf)
 
 	// for any ambiguity, outcome is an error interface, but it encodes whether the process
 	// was launched sucessfully and it resulted in a failure; err means the launch failed
-	if err := r.runPing(ctx, &outputBuf, target, inputParams); err != nil {
+	if err := r.runPing(&outputBuf); err != nil {
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
 	return emitStdout(ctx, outputBuf.String(), target, r.ev)
 }
 
-func (r *TargetRunner) runPing(ctx xcontext.Context, outputBuf *strings.Builder, target *target.Target,
-	inputParams inputStepParams,
-) error {
+func (r *TargetRunner) runPing(outputBuf *strings.Builder) error {
 	// Set timeout
-	timeTimeout := time.After(time.Duration(inputParams.Options.Timeout))
+	timeTimeout := time.After(time.Duration(r.ts.options.Timeout))
 	ticker := time.NewTicker(time.Second)
 
-	writeCommand(fmt.Sprintf("'%s:%d'", inputParams.Parameter.Host, inputParams.Parameter.Port), outputBuf)
+	writeCommand(fmt.Sprintf("'%s:%d'", r.ts.Host, r.ts.Port), outputBuf)
 
 	for {
 		select {
 		case <-timeTimeout:
-			if r.ts.expect.ShouldFail {
-				outputBuf.WriteString(fmt.Sprintf("Ping Output:\nCouldn't connect to host '%s' on port '%d'", inputParams.Parameter.Host, inputParams.Parameter.Port))
+			if r.ts.Expect.ShouldFail {
+				outputBuf.WriteString(fmt.Sprintf("Ping Output:\nCouldn't connect to host '%s' on port '%d'", r.ts.Host, r.ts.Port))
 
 				return nil
 			}
-			err := fmt.Errorf("Timeout, port %d was not opened in time.", inputParams.Parameter.Port)
+			err := fmt.Errorf("Timeout, port %d was not opened in time.", r.ts.Port)
 
 			outputBuf.WriteString(fmt.Sprintf("Ping Output:\n%s", err.Error()))
 
 			return err
 
 		case <-ticker.C:
-			conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", inputParams.Parameter.Host, inputParams.Parameter.Port))
+			conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", r.ts.Host, r.ts.Port))
 			if err != nil {
 				break
 			}
 			defer conn.Close()
 
-			outputBuf.WriteString(fmt.Sprintf("Ping Output:\nSuccessfully pinged '%s' on port '%d'", inputParams.Parameter.Host, inputParams.Parameter.Port))
+			outputBuf.WriteString(fmt.Sprintf("Ping Output:\nSuccessfully pinged '%s' on port '%d'", r.ts.Host, r.ts.Port))
 
 			return nil
 		}

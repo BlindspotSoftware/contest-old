@@ -5,84 +5,72 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
 	"github.com/linuxboot/contest/plugins/teststeps"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
 )
-
-const (
-	defaultPort                     = 22 // SSH port
-	defaultShouldFail               = false
-	defaultTimeout    time.Duration = time.Minute
-	in                              = "input"
-	out                             = "expect"
-)
-
-type inputStepParams struct {
-	Parameter struct {
-		Host string `json:"host"`
-		Port int    `json:"port,omitempty"`
-	} `json:"parameter"`
-
-	Options struct {
-		Timeout xjson.Duration `json:"timeout"`
-	} `json:"options,omitempty"`
-}
-
-type expect struct {
-	ShouldFail bool `json:"should_fail,omitempty"`
-}
 
 // Name is the name used to look this plugin up.
 var Name = "Ping"
 
+const (
+	parametersKeyword = "parameters"
+)
+
+const (
+	defaultPort       = 22 // SSH port
+	defaultShouldFail = false
+
+	defaultTimeout time.Duration = time.Minute
+)
+
+type parameters struct {
+	Host string `json:"host"`
+	Port int    `json:"port,omitempty"`
+
+	Expect struct {
+		ShouldFail bool `json:"should_fail,omitempty"`
+	} `json:"expect,omitempty"`
+}
+
+// TestStep implementation for this teststep plugin
 type TestStep struct {
-	inputStepParams
-	expect
+	parameters
+	options options.Parameters
 }
 
 // Run executes the step.
 func (ts *TestStep) Run(ctx xcontext.Context, ch test.TestStepChannels, params test.TestStepParameters, ev testevent.Emitter, resumeState json.RawMessage) (json.RawMessage, error) {
-	if err := ts.populateParams(params); err != nil {
-		return nil, err
-	}
-
 	tr := NewTargetRunner(ts, ev)
 	return teststeps.ForEachTarget(Name, ctx, ch, tr.Run)
 }
 
 func (ts *TestStep) populateParams(stepParams test.TestStepParameters) error {
-	var input *test.Param
+	var parameters, optionsParams *test.Param
 
-	if input = stepParams.GetOne(in); input.IsEmpty() {
-		return fmt.Errorf("input parameter cannot be empty")
+	if parameters = stepParams.GetOne(parametersKeyword); parameters.IsEmpty() {
+		return fmt.Errorf("parameters cannot be empty")
 	}
 
-	if err := json.Unmarshal(input.JSON(), &ts.inputStepParams); err != nil {
-		return fmt.Errorf("failed to deserialize %q parameters: %v", in, err)
+	if err := json.Unmarshal(parameters.JSON(), &ts.parameters); err != nil {
+		return fmt.Errorf("failed to deserialize parameters: %v", err)
 	}
 
-	if ts.inputStepParams.Parameter.Host == "" {
-		return fmt.Errorf("a host address needs to be set")
-	}
+	optionsParams = stepParams.GetOne(options.Keyword)
 
-	expect := stepParams.GetOne(out)
-
-	if !expect.IsEmpty() {
-		if err := json.Unmarshal(expect.JSON(), &ts.expect); err != nil {
-			return fmt.Errorf("failed to deserialize %q parameters: %v", in, err)
-		}
+	if err := json.Unmarshal(optionsParams.JSON(), &ts.options); err != nil {
+		return fmt.Errorf("failed to deserialize options: %v", err)
 	}
 
 	return nil
 }
 
-// ValidateParameters validates the parameters associated to the step
-func (ts *TestStep) ValidateParameters(_ xcontext.Context, stepParams test.TestStepParameters) error {
-	return ts.populateParams(stepParams)
+// ValidateParameters validates the parameters associated to the TestStep
+func (ts *TestStep) ValidateParameters(ctx xcontext.Context, params test.TestStepParameters) error {
+	return ts.populateParams(params)
 }
 
 // New initializes and returns a new SSHCmd test step.
