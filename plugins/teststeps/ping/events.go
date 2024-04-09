@@ -50,16 +50,16 @@ func emitEvent(ctx xcontext.Context, name event.Name, payload interface{}, tgt *
 }
 
 // Function to format teststep information and append it to a string builder.
-func writeTestStep(step *TestStep, builders ...*strings.Builder) {
+func (ts TestStep) writeTestStep(builders ...*strings.Builder) {
 	for _, builder := range builders {
 		builder.WriteString("Input Parameter:\n")
 		builder.WriteString("  Parameter:\n")
-		builder.WriteString(fmt.Sprintf("    Host: %s\n", step.Parameter.Host))
-		builder.WriteString(fmt.Sprintf("    Port: %d\n", step.Parameter.Port))
+		builder.WriteString(fmt.Sprintf("    Host: %s\n", ts.Host))
+		builder.WriteString(fmt.Sprintf("    Port: %d\n", ts.Port))
 		builder.WriteString("  Expect:\n")
-		builder.WriteString(fmt.Sprintf("    ShouldFail: %t\n", step.expect.ShouldFail))
+		builder.WriteString(fmt.Sprintf("    ShouldFail: %t\n", ts.Expect.ShouldFail))
 		builder.WriteString("  Options:\n")
-		builder.WriteString(fmt.Sprintf("    Timeout: %s\n", time.Duration(step.Options.Timeout)))
+		builder.WriteString(fmt.Sprintf("    Timeout: %s\n", time.Duration(ts.options.Timeout)))
 		builder.WriteString("\n")
 
 		builder.WriteString("Default Values:\n")
