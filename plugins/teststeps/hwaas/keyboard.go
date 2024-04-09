@@ -15,8 +15,8 @@ const (
 
 // flashCmds is a helper function to call into the different flash commands
 func (ts *TestStep) keyboardCmds(ctx xcontext.Context, outputBuf *strings.Builder) error {
-	if len(ts.Parameter.Args) >= 1 {
-		switch ts.Parameter.Args[0] {
+	if len(ts.Args) >= 1 {
+		switch ts.Args[0] {
 
 		case clearCRC:
 			if err := ts.clearCRC(ctx, outputBuf); err != nil {
@@ -26,7 +26,7 @@ func (ts *TestStep) keyboardCmds(ctx xcontext.Context, outputBuf *strings.Builde
 			return nil
 
 		default:
-			return fmt.Errorf("failed to execute the keyboard command. The argument '%s' is not valid. Possible values are 'clearcrc'.", ts.Parameter.Args)
+			return fmt.Errorf("failed to execute the keyboard command. The argument '%s' is not valid. Possible values are 'clearcrc'.", ts.Args)
 		}
 	} else {
 		return fmt.Errorf("failed to execute the keyboard command. Possible values are 'clearcrc'.")
@@ -36,7 +36,7 @@ func (ts *TestStep) keyboardCmds(ctx xcontext.Context, outputBuf *strings.Builde
 // clearCRC calls out /clearcrc endpoint and clears the 'bad crc' error.
 func (ts *TestStep) clearCRC(ctx xcontext.Context, outputBuf *strings.Builder) error {
 	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/auxiliaries/%s/api/clearcrc",
-		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID, ts.Parameter.DeviceID)
+		ts.Host, ts.Version, ts.ContextID, ts.MachineID, ts.DeviceID)
 
 	resp, err := HTTPRequest(ctx, http.MethodPost, endpoint, bytes.NewBuffer(nil))
 	if err != nil {

@@ -25,25 +25,25 @@ const (
 
 // flashCmds is a helper function to call into the different flash commands
 func (ts *TestStep) flashCmds(ctx xcontext.Context, outputBuf *strings.Builder) error {
-	if len(ts.Parameter.Args) >= 2 {
-		switch ts.Parameter.Args[0] {
+	if len(ts.Args) >= 2 {
+		switch ts.Args[0] {
 
 		case "write":
-			if err := ts.flashWrite(ctx, outputBuf, ts.Parameter.Args[1]); err != nil {
+			if err := ts.flashWrite(ctx, outputBuf, ts.Args[1]); err != nil {
 				return err
 			}
 
 			return nil
 
 		case "read":
-			if err := ts.flashRead(ctx, outputBuf, ts.Parameter.Args[1]); err != nil {
+			if err := ts.flashRead(ctx, outputBuf, ts.Args[1]); err != nil {
 				return err
 			}
 
 			return nil
 
 		default:
-			return fmt.Errorf("failed to execute the flash command. The argument '%s' is not valid. Possible values are 'read /path/to/binary' and 'write /path/to/binary'.", ts.Parameter.Args)
+			return fmt.Errorf("failed to execute the flash command. The argument '%s' is not valid. Possible values are 'read /path/to/binary' and 'write /path/to/binary'.", ts.Args)
 		}
 	} else {
 		return fmt.Errorf("failed to execute the flash command. Args is not valid. Possible values are 'read /path/to/binary' and 'write /path/to/binary'.")
@@ -56,7 +56,7 @@ func (ts *TestStep) flashWrite(ctx xcontext.Context, outputBuf *strings.Builder,
 		return fmt.Errorf("no file was set to flash target.")
 	}
 
-	if ts.Parameter.Image != "" {
+	if ts.Image != "" {
 		if err := ts.deleteDrive(ctx); err != nil {
 			return err
 		}
@@ -155,7 +155,7 @@ type getFlash struct {
 // If an error occured, the field error is filled.
 func (ts *TestStep) getTargetState(ctx xcontext.Context) (getFlash, error) {
 	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/auxiliaries/%s/api/flash",
-		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID, ts.Parameter.DeviceID)
+		ts.Host, ts.Version, ts.ContextID, ts.MachineID, ts.DeviceID)
 
 	resp, err := HTTPRequest(ctx, http.MethodGet, endpoint, bytes.NewBuffer(nil))
 	if err != nil {
@@ -180,7 +180,7 @@ func (ts *TestStep) getTargetState(ctx xcontext.Context) (getFlash, error) {
 // pullFWImage downloads the binary from the target and stores it at 'filePath'.
 func (ts *TestStep) pullFWImage(ctx xcontext.Context, filePath string) error {
 	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/auxiliaries/%s/api/flash/file",
-		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID, ts.Parameter.DeviceID)
+		ts.Host, ts.Version, ts.ContextID, ts.MachineID, ts.DeviceID)
 
 	resp, err := HTTPRequest(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
@@ -210,7 +210,7 @@ func (ts *TestStep) pullFWImage(ctx xcontext.Context, filePath string) error {
 // postFWImage posts the binary to the target.
 func (ts *TestStep) postFWImage(ctx xcontext.Context, filePath string) error {
 	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/auxiliaries/%s/api/flash/file",
-		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID, ts.Parameter.DeviceID)
+		ts.Host, ts.Version, ts.ContextID, ts.MachineID, ts.DeviceID)
 
 	// open the binary that shall be flashed
 	file, err := os.Open(filePath)
@@ -273,7 +273,7 @@ type postFlash struct {
 // readTarget reads the binary from the target into the flash buffer.
 func (ts *TestStep) readTarget(ctx xcontext.Context) error {
 	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/auxiliaries/%s/api/flash",
-		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID, ts.Parameter.DeviceID)
+		ts.Host, ts.Version, ts.ContextID, ts.MachineID, ts.DeviceID)
 
 	postFlash := postFlash{
 		Action: read,
@@ -299,7 +299,7 @@ func (ts *TestStep) readTarget(ctx xcontext.Context) error {
 // flashTarget flashes the target with the binary in the flash buffer.
 func (ts *TestStep) flashTarget(ctx xcontext.Context) error {
 	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/auxiliaries/%s/api/flash",
-		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID, ts.Parameter.DeviceID)
+		ts.Host, ts.Version, ts.ContextID, ts.MachineID, ts.DeviceID)
 
 	postFlash := postFlash{
 		Action: write,
