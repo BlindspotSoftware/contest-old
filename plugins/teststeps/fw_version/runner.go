@@ -6,13 +6,12 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
-	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
 	"github.com/linuxboot/contest/plugins/teststeps/abstraction/transport"
 )
 
@@ -42,36 +41,14 @@ func NewTargetRunner(ts *TestStep, ev testevent.Emitter) *TargetRunner {
 func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	var outputBuf strings.Builder
 
-	// limit the execution time if specified
-	var cancel xcontext.CancelFunc
-
-	if r.ts.Options.Timeout == 0 {
-		r.ts.Options.Timeout = xjson.Duration(defaultTimeout)
-	}
-
-	ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
+	ctx, cancel := options.NewOptions(ctx, defaultTimeout, r.ts.options.Timeout)
 	defer cancel()
 
 	pe := test.NewParamExpander(target)
 
-	var params inputStepParams
-	if err := pe.ExpandObject(r.ts.inputStepParams, &params); err != nil {
-		err := fmt.Errorf("failed to expand input parameter: %v", err)
-		outputBuf.WriteString(fmt.Sprintf("%v", err))
+	r.ts.writeTestStep(&outputBuf)
 
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
-	}
-
-	writeTestStep(r.ts, &outputBuf)
-
-	if params.Transport.Proto != supportedProto {
-		err := fmt.Errorf("only %q is supported as protocol in this teststep", supportedProto)
-		outputBuf.WriteString(fmt.Sprintf("%v", err))
-
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
-	}
-
-	transportProto, err := transport.NewTransport(params.Transport.Proto, params.Transport.Options, pe)
+	transportProto, err := transport.NewTransport(r.ts.transport.Proto, []string{supportedProto}, r.ts.transport.Options, pe)
 	if err != nil {
 		err := fmt.Errorf("failed to create transport: %w", err)
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
@@ -79,7 +56,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
-	if err := r.ts.runVersion(ctx, &outputBuf, transportProto, params); err != nil {
+	if err := r.ts.runVersion(ctx, &outputBuf, transportProto); err != nil {
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
 
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
@@ -90,16 +67,16 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 
 func (ts *TestStep) runVersion(
 	ctx xcontext.Context, outputBuf *strings.Builder,
-	transport transport.Transport, params inputStepParams,
+	transport transport.Transport,
 ) error {
-	if params.Parameter.Format == "" {
-		params.Parameter.Format = "number"
+	if ts.Format == "" {
+		ts.Format = "number"
 	}
 
 	args := []string{
-		params.Parameter.ToolPath,
+		ts.ToolPath,
 		cmd,
-		fmt.Sprintf("--format=%s", params.Parameter.Format),
+		fmt.Sprintf("--format=%s", ts.Format),
 		jsonFlag,
 	}
 
@@ -184,8 +161,8 @@ func (ts *TestStep) parseOutput(stdout []byte) error {
 		return err
 	}
 
-	if output.FirmwareVersion != ts.Parameter.ExpectedVersion {
-		return fmt.Errorf("failed to match version: expected %s, got %s", ts.Parameter.ExpectedVersion, output.FirmwareVersion)
+	if output.FirmwareVersion != ts.Expect.Version {
+		return fmt.Errorf("failed to match version: expected %s, got %s", ts.Expect.Version, output.FirmwareVersion)
 	}
 
 	return nil
