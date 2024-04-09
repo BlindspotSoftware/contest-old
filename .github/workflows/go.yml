@@ -29,5 +29,5 @@ jobs:
           context: .github/dockerfiles/
           file: .github/dockerfiles/Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/contestgrpcserver:v0.3
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/contestgrpcserver:v0.4
           ssh: default=${{ env.SSH_AUTH_SOCK }}
