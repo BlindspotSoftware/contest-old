@@ -50,21 +50,21 @@ func emitEvent(ctx xcontext.Context, name event.Name, payload interface{}, tgt *
 }
 
 // Function to format teststep information and append it to a string builder.
-func writeTestStep(step *TestStep, builders ...*strings.Builder) {
+func (ts TestStep) writeTestStep(builders ...*strings.Builder) {
 	for _, builder := range builders {
 		builder.WriteString("Input Parameter:\n")
 		builder.WriteString("  Parameter:\n")
-		builder.WriteString(fmt.Sprintf("    Command: %s\n", step.Parameter.Command))
-		builder.WriteString(fmt.Sprintf("    Arguments: %s\n", step.Parameter.Args))
-		builder.WriteString(fmt.Sprintf("    Host: %s\n", step.Parameter.Host))
-		builder.WriteString(fmt.Sprintf("    ContextID: %s\n", step.Parameter.ContextID))
-		builder.WriteString(fmt.Sprintf("    MachineID: %s\n", step.Parameter.MachineID))
-		builder.WriteString(fmt.Sprintf("    DeviceID: %s\n", step.Parameter.DeviceID))
-		builder.WriteString(fmt.Sprintf("    Version: %s\n", step.Parameter.Version))
-		builder.WriteString(fmt.Sprintf("    Image: %s\n", step.Parameter.Image))
+		builder.WriteString(fmt.Sprintf("    Command: %s\n", ts.Command))
+		builder.WriteString(fmt.Sprintf("    Arguments: %s\n", ts.Args))
+		builder.WriteString(fmt.Sprintf("    Host: %s\n", ts.Host))
+		builder.WriteString(fmt.Sprintf("    ContextID: %s\n", ts.ContextID))
+		builder.WriteString(fmt.Sprintf("    MachineID: %s\n", ts.MachineID))
+		builder.WriteString(fmt.Sprintf("    DeviceID: %s\n", ts.DeviceID))
+		builder.WriteString(fmt.Sprintf("    Version: %s\n", ts.Version))
+		builder.WriteString(fmt.Sprintf("    Image: %s\n", ts.Image))
 
 		builder.WriteString("  Options:\n")
-		builder.WriteString(fmt.Sprintf("    Timeout: %s\n", time.Duration(step.Options.Timeout)))
+		builder.WriteString(fmt.Sprintf("    Timeout: %s\n", time.Duration(ts.options.Timeout)))
 		builder.WriteString("\n")
 
 		builder.WriteString("Default Values:\n")

@@ -16,7 +16,7 @@ import (
 )
 
 func (ts *TestStep) mountImage(ctx xcontext.Context, outputBuf *strings.Builder) error {
-	hashSum, err := calcSHA256(ts.Parameter.Image)
+	hashSum, err := calcSHA256(ts.Image)
 	if err != nil {
 		return err
 	}
@@ -56,7 +56,7 @@ func (ts *TestStep) mountImage(ctx xcontext.Context, outputBuf *strings.Builder)
 }
 
 func (ts *TestStep) checkMountImage(ctx xcontext.Context, hashSum []byte) error {
-	endpoint := fmt.Sprintf("%s%s/images/%x", ts.Parameter.Host, ts.Parameter.Version, hashSum)
+	endpoint := fmt.Sprintf("%s%s/images/%x", ts.Host, ts.Version, hashSum)
 
 	resp, err := HTTPRequest(ctx, http.MethodGet, endpoint, bytes.NewBuffer(nil))
 	if err != nil {
@@ -77,9 +77,9 @@ func (ts *TestStep) checkMountImage(ctx xcontext.Context, hashSum []byte) error 
 }
 
 func (ts *TestStep) postMountImage(ctx xcontext.Context) error {
-	endpoint := fmt.Sprintf("%s%s/images", ts.Parameter.Host, ts.Parameter.Version)
+	endpoint := fmt.Sprintf("%s%s/images", ts.Host, ts.Version)
 
-	file, err := os.Open(ts.Parameter.Image)
+	file, err := os.Open(ts.Image)
 	if err != nil {
 		return fmt.Errorf("failed to open the image at the provided path: %v", err)
 	}
@@ -87,7 +87,7 @@ func (ts *TestStep) postMountImage(ctx xcontext.Context) error {
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	form, err := writer.CreateFormFile("file", filepath.Base(ts.Parameter.Image))
+	form, err := writer.CreateFormFile("file", filepath.Base(ts.Image))
 	if err != nil {
 		return fmt.Errorf("failed to create the form-data header: %v", err)
 	}
@@ -128,7 +128,7 @@ func (ts *TestStep) postMountImage(ctx xcontext.Context) error {
 
 func (ts *TestStep) createDrive(ctx xcontext.Context, hash string) error {
 	endpoint := fmt.Sprintf("%s%s/contexts/%s/drives/%s?image_hash=%s",
-		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, filepath.Base(ts.Parameter.Image), hash)
+		ts.Host, ts.Version, ts.ContextID, filepath.Base(ts.Image), hash)
 
 	resp, err := HTTPRequest(ctx, http.MethodPut, endpoint, nil)
 	if err != nil {
@@ -150,7 +150,7 @@ func (ts *TestStep) createDrive(ctx xcontext.Context, hash string) error {
 
 func (ts *TestStep) deleteDrive(ctx xcontext.Context) error {
 	endpoint := fmt.Sprintf("%s%s/contexts/%s/drives/%s",
-		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, filepath.Base(ts.Parameter.Image))
+		ts.Host, ts.Version, ts.ContextID, filepath.Base(ts.Image))
 
 	resp, err := HTTPRequest(ctx, http.MethodDelete, endpoint, nil)
 	if err != nil {
@@ -172,7 +172,7 @@ func (ts *TestStep) deleteDrive(ctx xcontext.Context) error {
 
 func (ts *TestStep) checkUSBPlug(ctx xcontext.Context) (bool, error) {
 	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/usb/plug",
-		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID)
+		ts.Host, ts.Version, ts.ContextID, ts.MachineID)
 
 	resp, err := HTTPRequest(ctx, http.MethodGet, endpoint, bytes.NewBuffer(nil))
 	if err != nil {
@@ -206,7 +206,7 @@ const (
 
 func (ts *TestStep) plugUSB(ctx xcontext.Context, plug bool) error {
 	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/usb/plug",
-		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID)
+		ts.Host, ts.Version, ts.ContextID, ts.MachineID)
 
 	var httpMethod string
 
@@ -240,10 +240,10 @@ type drives struct {
 
 func (ts *TestStep) configureUSB(ctx xcontext.Context) error {
 	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/usb/functions",
-		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID)
+		ts.Host, ts.Version, ts.ContextID, ts.MachineID)
 
 	drives := drives{
-		Drives: []string{filepath.Base(ts.Parameter.Image)},
+		Drives: []string{filepath.Base(ts.Image)},
 	}
 
 	drivesBody, err := json.Marshal(drives)

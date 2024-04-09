@@ -5,42 +5,33 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
 	"github.com/linuxboot/contest/plugins/teststeps"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
 )
 
 // We need a default timeout to avoid endless running tests.
 const (
-	defaultTimeout   time.Duration = 5 * time.Minute
-	defaultContextID string        = "0fb4acd8-e429-11ed-b5ea-0242ac120002"
-	defaultMachineID string        = "ws"
-	defaultDeviceID  string        = "flasher"
-	defaultHost      string        = "http://9e-hwaas-aux1.lab.9e.network"
+	defaultTimeout    time.Duration = 5 * time.Minute
+	defaultContextID  string        = "0fb4acd8-e429-11ed-b5ea-0242ac120002"
+	defaultMachineID  string        = "ws"
+	defaultDeviceID   string        = "flasher"
+	defaultHost       string        = "http://9e-hwaas-aux1.lab.9e.network"
+	parametersKeyword               = "parameters"
 )
 
-const (
-	in = "input"
-)
-
-type inputStepParams struct {
-	Parameter struct {
-		Command   string   `json:"command,omitempty"`
-		Args      []string `json:"args,omitempty"`
-		Host      string   `json:"host,omitempty"`
-		Version   string   `json:"version,omitempty"`
-		ContextID string   `json:"context_id,omitempty"`
-		MachineID string   `json:"machine_id,omitempty"`
-		DeviceID  string   `json:"device_id,omitempty"`
-		Image     string   `json:"image,omitempty"`
-	} `json:"parameter"`
-
-	Options struct {
-		Timeout xjson.Duration `json:"timeout,omitempty"`
-	} `json:"options,omitempty"`
+type parameters struct {
+	Command   string   `json:"command,omitempty"`
+	Args      []string `json:"args,omitempty"`
+	Host      string   `json:"host,omitempty"`
+	Version   string   `json:"version,omitempty"`
+	ContextID string   `json:"context_id,omitempty"`
+	MachineID string   `json:"machine_id,omitempty"`
+	DeviceID  string   `json:"device_id,omitempty"`
+	Image     string   `json:"image,omitempty"`
 }
 
 // Name is the name used to look this plugin up.
@@ -48,7 +39,8 @@ const Name = "HwaaS"
 
 // TestStep implementation for this teststep plugin
 type TestStep struct {
-	inputStepParams
+	parameters
+	options options.Parameters
 }
 
 // Run executes the cmd step.
@@ -58,37 +50,43 @@ func (ts *TestStep) Run(ctx xcontext.Context, ch test.TestStepChannels, params t
 }
 
 func (ts *TestStep) validateAndPopulate(stepParams test.TestStepParameters) error {
-	var input *test.Param
+	var parameters, optionsParams *test.Param
 
-	if input = stepParams.GetOne(in); input.IsEmpty() {
-		return fmt.Errorf("input parameter cannot be empty")
+	if parameters = stepParams.GetOne(parametersKeyword); parameters.IsEmpty() {
+		return fmt.Errorf("parameters cannot be empty")
 	}
 
-	if err := json.Unmarshal(input.JSON(), &ts.inputStepParams); err != nil {
-		return fmt.Errorf("failed to deserialize %q parameters: %v", in, err)
+	if err := json.Unmarshal(parameters.JSON(), &ts.parameters); err != nil {
+		return fmt.Errorf("failed to deserialize parameters: %v", err)
 	}
 
-	if ts.Parameter.Host == "" {
-		ts.Parameter.Host = defaultHost
+	optionsParams = stepParams.GetOne(options.Keyword)
+
+	if err := json.Unmarshal(optionsParams.JSON(), &ts.options); err != nil {
+		return fmt.Errorf("failed to deserialize options: %v", err)
 	}
 
-	if ts.Parameter.ContextID == "" {
-		ts.Parameter.ContextID = defaultContextID
+	if ts.Host == "" {
+		ts.Host = defaultHost
 	}
 
-	if ts.Parameter.MachineID == "" {
-		ts.Parameter.MachineID = defaultMachineID
+	if ts.ContextID == "" {
+		ts.ContextID = defaultContextID
 	}
 
-	if ts.Parameter.DeviceID == "" {
-		ts.Parameter.DeviceID = defaultDeviceID
+	if ts.MachineID == "" {
+		ts.MachineID = defaultMachineID
 	}
 
-	if ts.Parameter.Command == "" {
+	if ts.DeviceID == "" {
+		ts.DeviceID = defaultDeviceID
+	}
+
+	if ts.Command == "" {
 		return fmt.Errorf("missing or empty 'command' parameter")
 	}
 
-	if len(ts.Parameter.Args) == 0 {
+	if len(ts.Args) == 0 {
 		return fmt.Errorf("missing or empty 'args' parameter")
 	}
 

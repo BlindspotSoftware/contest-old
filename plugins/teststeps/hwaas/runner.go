@@ -7,11 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/target"
-	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
+	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
 )
 
 type TargetRunner struct {
@@ -35,28 +34,14 @@ const (
 func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	var outputBuf strings.Builder
 
-	// limit the execution time if specified
-	var cancel xcontext.CancelFunc
-
-	if r.ts.Options.Timeout == 0 {
-		r.ts.Options.Timeout = xjson.Duration(defaultTimeout)
-	}
-
-	ctx, cancel = xcontext.WithTimeout(ctx, time.Duration(r.ts.Options.Timeout))
+	ctx, cancel := options.NewOptions(ctx, defaultTimeout, r.ts.options.Timeout)
 	defer cancel()
 
-	pe := test.NewParamExpander(target)
+	r.ts.writeTestStep(&outputBuf)
 
-	var params inputStepParams
+	writeCommand(r.ts.Command, r.ts.Args, &outputBuf)
 
-	if err := pe.ExpandObject(r.ts.inputStepParams, &params); err != nil {
-		return err
-	}
-
-	writeTestStep(r.ts, &outputBuf)
-	writeCommand(params.Parameter.Command, params.Parameter.Args, &outputBuf)
-
-	switch params.Parameter.Command {
+	switch r.ts.Command {
 	case power:
 		var err error
 
@@ -92,7 +77,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		}
 
 	default:
-		err := fmt.Errorf("Command '%s' is not valid. Possible values are 'power', 'flash' and 'keyboard'.", params.Parameter.Command)
+		err := fmt.Errorf("Command '%s' is not valid. Possible values are 'power', 'flash' and 'keyboard'.", r.ts.Command)
 		outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)

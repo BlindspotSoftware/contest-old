@@ -31,8 +31,8 @@ const (
 
 // powerCmds is a helper function to call into the different power commands
 func (ts *TestStep) powerCmds(ctx xcontext.Context, outputBuf *strings.Builder) error {
-	if len(ts.Parameter.Args) >= 1 {
-		switch ts.Parameter.Args[0] {
+	if len(ts.Args) >= 1 {
+		switch ts.Args[0] {
 
 		case "on":
 			if err := ts.powerOn(ctx, outputBuf); err != nil {
@@ -49,9 +49,9 @@ func (ts *TestStep) powerCmds(ctx xcontext.Context, outputBuf *strings.Builder) 
 				}
 			}
 
-			if len(ts.Parameter.Args) >= 2 {
-				if ts.Parameter.Args[1] != "hard" {
-					outputBuf.WriteString(fmt.Sprintf("Failed to execute the reboot command with arguments: %v. The last argument is not valid.\nThe only possible value is 'hard'. Executing a hard reset instead now.", ts.Parameter.Args))
+			if len(ts.Args) >= 2 {
+				if ts.Args[1] != "hard" {
+					outputBuf.WriteString(fmt.Sprintf("Failed to execute the reboot command with arguments: %v. The last argument is not valid.\nThe only possible value is 'hard'. Executing a hard reset instead now.", ts.Args))
 				}
 				if err := ts.powerOffHard(ctx, outputBuf); err != nil {
 					return err
@@ -61,9 +61,9 @@ func (ts *TestStep) powerCmds(ctx xcontext.Context, outputBuf *strings.Builder) 
 			return nil
 
 		case "reboot":
-			if len(ts.Parameter.Args) >= 2 {
-				if ts.Parameter.Args[1] != "hard" {
-					outputBuf.WriteString(fmt.Sprintf("Failed to execute the reboot command with arguments: %v. The last argument is not valid.\nThe only possible value is 'hard'. Executing a hard reset instead now.", ts.Parameter.Args))
+			if len(ts.Args) >= 2 {
+				if ts.Args[1] != "hard" {
+					outputBuf.WriteString(fmt.Sprintf("Failed to execute the reboot command with arguments: %v. The last argument is not valid.\nThe only possible value is 'hard'. Executing a hard reset instead now.", ts.Args))
 				}
 
 				if err := ts.powerOffHard(ctx, outputBuf); err != nil {
@@ -87,7 +87,7 @@ func (ts *TestStep) powerCmds(ctx xcontext.Context, outputBuf *strings.Builder) 
 			return nil
 
 		default:
-			return fmt.Errorf("failed to execute the power command. The argument '%s' is not valid. Possible values are 'on', 'off' and 'reboot'.", ts.Parameter.Args)
+			return fmt.Errorf("failed to execute the power command. The argument '%s' is not valid. Possible values are 'on', 'off' and 'reboot'.", ts.Args)
 		}
 	} else {
 		return fmt.Errorf("failed to execute the power command. Arguments are empty. Possible values are 'on', 'off' and 'reboot'.")
@@ -100,8 +100,8 @@ func (ts *TestStep) powerOn(ctx xcontext.Context, outputBuf *strings.Builder) er
 		return fmt.Errorf("failed to power on DUT: %v", err)
 	}
 
-	if ts.Parameter.ContextID == "db99f1e5-f438-418b-bfa4-30b72957ce33" || ts.Parameter.ContextID == "d6005a94-bfc8-4490-99dd-70a9c3cb5213" || // T14 Gen4 & T16 Gen2
-		ts.Parameter.ContextID == "b6c2023b-1c35-4633-95c1-3eb796d23572" { // P14s Gen4 
+	if ts.ContextID == "db99f1e5-f438-418b-bfa4-30b72957ce33" || ts.ContextID == "d6005a94-bfc8-4490-99dd-70a9c3cb5213" || // T14 Gen4 & T16 Gen2
+		ts.ContextID == "b6c2023b-1c35-4633-95c1-3eb796d23572" { // P14s Gen4
 		if err := ts.powerOnLED(ctx, outputBuf); err != nil {
 			return err
 		}
@@ -129,7 +129,7 @@ func (ts *TestStep) powerOnLED(ctx xcontext.Context, outputBuf *strings.Builder)
 	}
 
 	if state == off {
-		if ts.Parameter.Image != "" {
+		if ts.Image != "" {
 			if err := ts.mountImage(ctx, outputBuf); err != nil {
 				return err
 			}
@@ -178,7 +178,7 @@ func (ts *TestStep) powerFUSB(ctx xcontext.Context, outputBuf *strings.Builder) 
 	}
 
 	if state == off {
-		if ts.Parameter.Image != "" {
+		if ts.Image != "" {
 			if err := ts.mountImage(ctx, outputBuf); err != nil {
 				return fmt.Errorf("failed to mount image: %w", err)
 			}
@@ -222,8 +222,8 @@ func (ts *TestStep) powerOffSoft(ctx xcontext.Context, outputBuf *strings.Builde
 	)
 
 	// First check if device needs to be powered down
-	if ts.Parameter.ContextID == "db99f1e5-f438-418b-bfa4-30b72957ce33" || ts.Parameter.ContextID == "d6005a94-bfc8-4490-99dd-70a9c3cb5213" || // T14 Gen4 & T16 Gen2
-		ts.Parameter.ContextID == "b6c2023b-1c35-4633-95c1-3eb796d23572" { // P14s Gen4 
+	if ts.ContextID == "db99f1e5-f438-418b-bfa4-30b72957ce33" || ts.ContextID == "d6005a94-bfc8-4490-99dd-70a9c3cb5213" || // T14 Gen4 & T16 Gen2
+		ts.ContextID == "b6c2023b-1c35-4633-95c1-3eb796d23572" { // P14s Gen4
 		state, err = ts.getState(ctx, led)
 		if err != nil {
 			return err
@@ -299,7 +299,7 @@ type postPower struct {
 // duration can be set from 0s to 20s.
 func (ts *TestStep) postPower(ctx xcontext.Context, duration string) error {
 	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/auxiliaries/%s/api/power",
-		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID, ts.Parameter.DeviceID)
+		ts.Host, ts.Version, ts.ContextID, ts.MachineID, ts.DeviceID)
 
 	postPower := postPower{
 		Duration: duration,
@@ -331,7 +331,7 @@ func (ts *TestStep) postPower(ctx xcontext.Context, duration string) error {
 // postFusbPower pushes the power button over the Fusb302b adapter.
 func (ts *TestStep) postFusbPower(ctx xcontext.Context) error {
 	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/auxiliaries/%s/api/fusb",
-		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID, ts.Parameter.DeviceID)
+		ts.Host, ts.Version, ts.ContextID, ts.MachineID, ts.DeviceID)
 
 	resp, err := HTTPRequest(ctx, http.MethodPost, endpoint, nil)
 	if err != nil {
@@ -360,7 +360,7 @@ func (ts *TestStep) pressPDU(ctx xcontext.Context, method string) error {
 	}
 
 	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/power",
-		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID)
+		ts.Host, ts.Version, ts.ContextID, ts.MachineID)
 
 	resp, err := HTTPRequest(ctx, method, endpoint, bytes.NewBuffer(nil))
 	if err != nil {
@@ -404,7 +404,7 @@ func (ts *TestStep) postReset(ctx xcontext.Context, wantState string) error {
 	}
 
 	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/auxiliaries/%s/api/reset",
-		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID, ts.Parameter.DeviceID)
+		ts.Host, ts.Version, ts.ContextID, ts.MachineID, ts.DeviceID)
 
 	postReset := postReset{
 		State: wantState,
@@ -452,7 +452,7 @@ type getState struct {
 // The input parameter command should have one of this values.
 func (ts *TestStep) getState(ctx xcontext.Context, command string) (string, error) {
 	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/auxiliaries/%s/api/%s",
-		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID, ts.Parameter.DeviceID, command)
+		ts.Host, ts.Version, ts.ContextID, ts.MachineID, ts.DeviceID, command)
 
 	resp, err := HTTPRequest(ctx, http.MethodGet, endpoint, bytes.NewBuffer(nil))
 	if err != nil {
@@ -481,7 +481,7 @@ func (ts *TestStep) getState(ctx xcontext.Context, command string) (string, erro
 // getFusbState returns the state of the led read out over the Fusb302b adapter.
 func (ts *TestStep) getFusbState(ctx xcontext.Context) (string, error) {
 	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/auxiliaries/%s/api/fusb",
-		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID, ts.Parameter.DeviceID)
+		ts.Host, ts.Version, ts.ContextID, ts.MachineID, ts.DeviceID)
 
 	resp, err := HTTPRequest(ctx, http.MethodGet, endpoint, bytes.NewBuffer(nil))
 	if err != nil {
@@ -511,7 +511,7 @@ func (ts *TestStep) getFusbState(ctx xcontext.Context) (string, error) {
 // The input parameter command should have one of this values.
 func (ts *TestStep) getPDUState(ctx xcontext.Context) (bool, error) {
 	endpoint := fmt.Sprintf("%s%s/contexts/%s/machines/%s/power",
-		ts.Parameter.Host, ts.Parameter.Version, ts.Parameter.ContextID, ts.Parameter.MachineID)
+		ts.Host, ts.Version, ts.ContextID, ts.MachineID)
 
 	resp, err := HTTPRequest(ctx, http.MethodGet, endpoint, bytes.NewBuffer(nil))
 	if err != nil {
