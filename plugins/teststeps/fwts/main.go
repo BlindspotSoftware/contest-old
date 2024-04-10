@@ -67,8 +67,10 @@ func (ts *TestStep) validateAndPopulate(stepParams test.TestStepParameters) erro
 
 	optionsParams = stepParams.GetOne(options.Keyword)
 
-	if err := json.Unmarshal(optionsParams.JSON(), &ts.options); err != nil {
-		return fmt.Errorf("failed to deserialize options: %v", err)
+	if !optionsParams.IsEmpty() {
+		if err := json.Unmarshal(optionsParams.JSON(), &ts.options); err != nil {
+			return fmt.Errorf("failed to deserialize options: %v", err)
+		}
 	}
 
 	return nil

@@ -62,17 +62,18 @@ func (ts *TestStep) populateParams(stepParams test.TestStepParameters) error {
 	if transportParams = stepParams.GetOne(transport.Keyword); transportParams.IsEmpty() {
 		return fmt.Errorf("transport cannot be empty")
 	}
-	
+
 	if err := json.Unmarshal(transportParams.JSON(), &ts.transport); err != nil {
 		return fmt.Errorf("failed to deserialize transport: %v", err)
 	}
 
 	optionsParams = stepParams.GetOne(options.Keyword)
 
-	if err := json.Unmarshal(optionsParams.JSON(), &ts.options); err != nil {
-		return fmt.Errorf("failed to deserialize options: %v", err)
+	if !optionsParams.IsEmpty() {
+		if err := json.Unmarshal(optionsParams.JSON(), &ts.options); err != nil {
+			return fmt.Errorf("failed to deserialize options: %v", err)
+		}
 	}
-
 	return nil
 }
 
