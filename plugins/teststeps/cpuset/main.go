@@ -24,7 +24,7 @@ type parameters struct {
 	ToolPath string `json:"tool_path"`
 	Command  string `json:"command"`
 	Cores    []int  `json:"cores"`
-	Arg      string `json:"args"`
+	Arg      string `json:"arg"`
 }
 
 // Name is the name used to look this plugin up.
