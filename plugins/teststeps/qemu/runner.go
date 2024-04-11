@@ -48,7 +48,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 func (ts *TestStep) runQemu(ctx xcontext.Context, outputBuf *strings.Builder) error {
 	// no graphical output and no network access
 	command := []string{ts.Executable, "-nographic", "-nic", "none", "-bios", ts.Firmware}
-	qemuOpts := []string{"-m", ts.Mem, "-smp", ts.Nproc}
+	qemuOpts := []string{"-m", fmt.Sprintf("%d", ts.Mem), "-smp", fmt.Sprintf("%d", ts.Nproc)}
 
 	command = append(command, qemuOpts...)
 	if ts.Image != "" {

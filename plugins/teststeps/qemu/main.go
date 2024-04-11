@@ -32,8 +32,8 @@ const (
 type parameters struct {
 	Executable string `json:"executable"`
 	Firmware   string `json:"firmware"`
-	Nproc      string `json:"nproc,omitempty"`
-	Mem        string `json:"mem,omitempty"`
+	Nproc      int    `json:"nproc,omitempty"`
+	Mem        int    `json:"mem,omitempty"`
 	Image      string `json:"image,omitempty"`
 	Logfile    string `json:"logfile,omitempty"`
 	Steps      []struct {
