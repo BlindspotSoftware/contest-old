@@ -28,10 +28,9 @@ RUN touch /root/.ssh/config
 RUN echo "StrictHostKeyChecking no" > /root/.ssh/config
 RUN git config --global url."git@github.com:".insteadOf "https://github.com/"
 
-# Clone contest server
-RUN --mount=type=ssh git clone https://github.com/blindspotsoftware/contest.git /root/contest
-
+# Build contest server
 WORKDIR /root/contest
+COPY . .
 RUN --mount=type=ssh go build ./cmds/contest
 
 #fwhunt dependencies 
@@ -55,8 +54,8 @@ RUN apt install rizin -y --allow-unauthenticated
 RUN pip install -r requirements.txt
 
 # Add SSH Keys for the DUTs
-ADD fwci /root/.ssh/fwci
-ADD fwci.pub /root/.ssh/fwci.pub
+ADD .github/assets/ssh-keys/fwci /root/.ssh/fwci
+ADD .github/assets/ssh-keys/fwci.pub /root/.ssh/fwci.pub
 
 # Start everything
 WORKDIR /
