@@ -161,6 +161,8 @@ func (ts *TestStep) deleteDrive(ctx xcontext.Context) error {
 	switch resp.StatusCode {
 	case http.StatusOK:
 		break
+	case http.StatusNotFound:
+		fmt.Print("drive does not exist.\n")
 	case http.StatusGone:
 		fmt.Print("drive does not exist anymore.\n")
 	default:
