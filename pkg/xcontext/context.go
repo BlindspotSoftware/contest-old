@@ -239,7 +239,8 @@ var (
 
 func init() {
 	hostname, _ = os.Hostname()
-	curUser, _ = user.Current()
+	curUser = &user.User{}
+	curUser.Name = os.Getenv("USER")
 }
 
 // Extend converts a standard context to an extended one
