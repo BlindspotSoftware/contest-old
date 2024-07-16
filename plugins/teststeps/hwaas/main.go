@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/linuxboot/contest/pkg/event"
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/test"
@@ -23,8 +22,6 @@ const (
 	defaultHost       string        = "http://9e-hwaas-aux1.lab.9e.network"
 	parametersKeyword               = "parameters"
 )
-
-var noFUSBCtxID = uuid.MustParse("000003e8-289a-21ef-a500-325096b39f47").String()
 
 type parameters struct {
 	Command   string   `json:"command,omitempty"`
