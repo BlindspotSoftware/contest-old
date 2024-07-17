@@ -59,7 +59,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
-	if err := r.ts.runFWTS(ctx, &outputBuf, target, transportProto); err != nil {
+	if err := r.ts.runFWTS(ctx, &outputBuf, transportProto); err != nil {
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
 
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
@@ -68,8 +68,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	return emitStdout(ctx, outputBuf.String(), target, r.ev)
 }
 
-func (ts *TestStep) runFWTS(ctx xcontext.Context, outputBuf *strings.Builder, target *target.Target,
-	transport transport.Transport,
+func (ts *TestStep) runFWTS(ctx xcontext.Context, outputBuf *strings.Builder, transport transport.Transport,
 ) error {
 	args := []string{
 		cmd,
