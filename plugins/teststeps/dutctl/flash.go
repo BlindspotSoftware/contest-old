@@ -2,18 +2,17 @@ package dutctl
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/9elements/fti/pkg/dut"
 	"github.com/9elements/fti/pkg/dutctl"
 	"github.com/9elements/fti/pkg/remote_lab/client"
 	"github.com/9elements/fti/pkg/tools"
-	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/xcontext"
 )
 
-func (r *TargetRunner) flashCmds(ctx xcontext.Context, stdoutMsg, stderrMsg *strings.Builder, target *target.Target) error {
+func (r *TargetRunner) flashCmds(ctx xcontext.Context, stdoutMsg, stderrMsg *strings.Builder) error {
 	var (
 		err          error
 		dutInterface dutctl.DutCtl
@@ -68,14 +67,14 @@ func (r *TargetRunner) flashCmds(ctx xcontext.Context, stdoutMsg, stderrMsg *str
 				return fmt.Errorf("Fail to read: %v\n", err)
 			}
 
-			if err = ioutil.WriteFile(r.ts.Args[1], rom, 0o660); err != nil {
+			if err = os.WriteFile(r.ts.Args[1], rom, 0o660); err != nil {
 				return fmt.Errorf("Failed to write file: %v\n", err)
 			}
 
 			stdoutMsg.WriteString(fmt.Sprintf("Successfully read flash into '%s'.\n", r.ts.Args[1]))
 
 		case "write":
-			rom, err := ioutil.ReadFile(r.ts.Args[1])
+			rom, err := os.ReadFile(r.ts.Args[1])
 			if err != nil {
 				return fmt.Errorf("File '%s' could not be read successfully: %v\n", r.ts.Args[1], err)
 			}
@@ -96,7 +95,7 @@ func (r *TargetRunner) flashCmds(ctx xcontext.Context, stdoutMsg, stderrMsg *str
 				return fmt.Errorf("Programmer doesn't support verify op\n")
 			}
 
-			rom, err := ioutil.ReadFile(r.ts.Args[1])
+			rom, err := os.ReadFile(r.ts.Args[1])
 			if err != nil {
 				return fmt.Errorf("File could not be read successfully: %v", err)
 			}

@@ -57,20 +57,20 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 
 	switch r.ts.Command {
 	case "power":
-		if err := r.powerCmds(ctx, &stdoutMsg, &stderrMsg, target); err != nil {
+		if err := r.powerCmds(ctx, &stdoutMsg, &stderrMsg); err != nil {
 			stderrMsg.WriteString(fmt.Sprintf("%v\n", err))
 
 			return emitStderr(ctx, EventStderr, stderrMsg.String(), target, r.ev, err)
 		}
 	case "flash":
-		if err := r.flashCmds(ctx, &stdoutMsg, &stderrMsg, target); err != nil {
+		if err := r.flashCmds(ctx, &stdoutMsg, &stderrMsg); err != nil {
 			stderrMsg.WriteString(fmt.Sprintf("%v\n", err))
 
 			return emitStderr(ctx, EventStderr, stderrMsg.String(), target, r.ev, err)
 		}
 
 	case "serial":
-		if err := r.serialCmds(ctx, &stdoutMsg, &stderrMsg, target); err != nil {
+		if err := r.serialCmds(ctx, &stdoutMsg, &stderrMsg); err != nil {
 			stderrMsg.WriteString(fmt.Sprintf("%v\n", err))
 
 			return emitStderr(ctx, EventStderr, stderrMsg.String(), target, r.ev, err)
