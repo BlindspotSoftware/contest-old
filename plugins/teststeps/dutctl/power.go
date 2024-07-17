@@ -9,7 +9,6 @@ import (
 	"github.com/9elements/fti/pkg/dutctl"
 	"github.com/9elements/fti/pkg/remote_lab/client"
 	"github.com/9elements/fti/pkg/tools"
-	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/xcontext"
 )
 
@@ -17,7 +16,7 @@ const (
 	tryTimeout = 15 * time.Second
 )
 
-func (r *TargetRunner) powerCmds(ctx xcontext.Context, stdoutMsg, stderrMsg *strings.Builder, target *target.Target) error {
+func (r *TargetRunner) powerCmds(ctx xcontext.Context, stdoutMsg, stderrMsg *strings.Builder) error {
 	var (
 		err          error
 		dutInterface dutctl.DutCtl

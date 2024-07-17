@@ -11,13 +11,12 @@ import (
 
 	"github.com/9elements/fti/pkg/dutctl"
 	"github.com/9elements/fti/pkg/remote_lab/client"
-	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/xcontext"
 )
 
 var timeout time.Time
 
-func (r *TargetRunner) serialCmds(ctx xcontext.Context, stdoutMsg, stderrMsg *strings.Builder, target *target.Target) error {
+func (r *TargetRunner) serialCmds(ctx xcontext.Context, stdoutMsg, stderrMsg *strings.Builder) error {
 	var (
 		dutInterface dutctl.DutCtl
 		err          error
