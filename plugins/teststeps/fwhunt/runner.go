@@ -43,7 +43,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 
 	transport := transport.NewLocalTransport()
 
-	if err := r.ts.runFwHunt(ctx, &outputBuf, target, transport); err != nil {
+	if err := r.ts.runFwHunt(ctx, &outputBuf, transport); err != nil {
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
 
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
@@ -52,8 +52,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	return emitStdout(ctx, outputBuf.String(), target, r.ev)
 }
 
-func (ts *TestStep) runFwHunt(ctx xcontext.Context, outputBuf *strings.Builder, target *target.Target,
-	transport transport.Transport,
+func (ts *TestStep) runFwHunt(ctx xcontext.Context, outputBuf *strings.Builder, transport transport.Transport,
 ) error {
 	args := []string{
 		"/fwhunt-scan/fwhunt_scan_analyzer.py",
