@@ -76,8 +76,6 @@ func (ts TestStep) writeTestStep(builders ...*strings.Builder) {
 		builder.WriteString("\n")
 
 		builder.WriteString("  Parameter:\n")
-		builder.WriteString(fmt.Sprintf("    ToolPath: %s\n", ts.ToolPath))
-		builder.WriteString(fmt.Sprintf("    NixOS: %t\n", ts.NixOS))
 		builder.WriteString(fmt.Sprintf("    Platform: %s\n", platform))
 		builder.WriteString(fmt.Sprintf("    PCH: %s\n", pch))
 

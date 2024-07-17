@@ -178,9 +178,8 @@ The "ChipSec" teststep allows you to run different chipsec modules on your DUT.
             password: PASSWORD                  # optional, type: string
             identity_file: IDENTITY_FILE        # optional, type: string
         parameter:
-            tool_path: TOOL_PATH                # optional, type: string
             modules: [MODULE1, MODULE2]         # optional, type: []string
-            nix_os: NIXOS_FLAG                  # optional, type: boolean, default: false (tool_path is not required if set)
+            pch: PCH_6XXP                       # optional, type: string
         options:
             timeout: TIMEOUT                    # optional, type: duration, default: 1m
 ```

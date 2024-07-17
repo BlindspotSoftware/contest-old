@@ -22,10 +22,8 @@ const (
 
 type parameters struct {
 	Modules  []string `json:"modules"`
-	ToolPath string   `json:"tool_path"`
 	Platform string   `json:"platform,omitempty"`
 	PCH      string   `json:"pch,omitempty"`
-	NixOS    bool     `json:"nix_os"`
 }
 
 // Name is the name used to look this plugin up.
@@ -78,10 +76,6 @@ func (ts *TestStep) validateAndPopulate(stepParams test.TestStepParameters) erro
 
 	if len(ts.Modules) == 0 {
 		return fmt.Errorf("missing or empty 'modules' parameter")
-	}
-
-	if ts.ToolPath == "" && !ts.NixOS {
-		return fmt.Errorf("missing or empty 'tool_path' parameter")
 	}
 
 	return nil
