@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"path/filepath"
 	"strings"
 
 	"github.com/linuxboot/contest/pkg/event/testevent"
@@ -60,7 +59,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
-	if err := r.ts.runModule(ctx, &outputBuf, target, transportProto); err != nil {
+	if err := r.ts.runModule(ctx, &outputBuf, transportProto); err != nil {
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
 
 		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
@@ -69,7 +68,9 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	return emitStdout(ctx, outputBuf.String(), target, r.ev)
 }
 
-func (ts *TestStep) runModule(ctx xcontext.Context, outputBuf *strings.Builder, target *target.Target,
+func (ts *TestStep) runModule(
+	ctx xcontext.Context,
+	outputBuf *strings.Builder,
 	transp transport.Transport,
 ) error {
 	var (
@@ -92,37 +93,18 @@ func (ts *TestStep) runModule(ctx xcontext.Context, outputBuf *strings.Builder, 
 			optionalArgs = append(optionalArgs, "--pch", ts.PCH)
 		}
 
-		switch ts.NixOS {
-		case false:
-			args := []string{
-				cmd,
-				filepath.Join(ts.ToolPath, bin),
-				"-m",
-				module,
-				jsonFlag,
-				filepath.Join(ts.ToolPath, outputFile),
-			}
+		args := []string{
+			"-m",
+			module,
+			jsonFlag,
+			outputFile,
+		}
 
-			args = append(args, optionalArgs...)
+		args = append(args, optionalArgs...)
 
-			proc, err = transp.NewProcess(ctx, privileged, args, "")
-			if err != nil {
-				return fmt.Errorf("Failed to create proc: %w", err)
-			}
-		case true:
-			args := []string{
-				"-m",
-				module,
-				jsonFlag,
-				filepath.Join(ts.ToolPath, outputFile),
-			}
-
-			args = append(args, optionalArgs...)
-
-			proc, err = transp.NewProcess(ctx, nixOSBin, args, "")
-			if err != nil {
-				return fmt.Errorf("Failed to create proc: %w", err)
-			}
+		proc, err = transp.NewProcess(ctx, nixOSBin, args, "")
+		if err != nil {
+			return fmt.Errorf("Failed to create proc: %w", err)
 		}
 
 		writeCommand(proc.String(), outputBuf)
@@ -191,12 +173,15 @@ func readBuffer(r io.Reader) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (ts *TestStep) parseOutput(ctx xcontext.Context, outputBuf *strings.Builder,
-	transport transport.Transport, module string,
+func (ts *TestStep) parseOutput(
+	ctx xcontext.Context,
+	outputBuf *strings.Builder,
+	transport transport.Transport,
+	module string,
 ) error {
 	args := []string{
 		"cat",
-		filepath.Join(ts.ToolPath, outputFile),
+		outputFile,
 	}
 
 	proc, err := transport.NewProcess(ctx, privileged, args, "")
