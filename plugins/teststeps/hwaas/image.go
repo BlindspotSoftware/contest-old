@@ -136,16 +136,26 @@ func (ts *TestStep) createDrive(ctx xcontext.Context, hash string) error {
 	}
 	defer resp.Body.Close()
 
-	switch resp.StatusCode {
-	case http.StatusOK:
-		break
-	case http.StatusConflict:
-		fmt.Print("Drive already exists.\n")
-	default:
-		return fmt.Errorf("drive could not be created. Endpoint: %s, Statuscode: %d", endpoint, resp.StatusCode)
+	if resp.StatusCode == http.StatusOK {
+		return nil
 	}
 
-	return nil
+	if resp.StatusCode == http.StatusConflict {
+		fmt.Print("Drive with same name already exists. Removing it...\n")
+
+		if err := ts.deleteDrive(ctx); err != nil {
+			return err
+		}
+
+		return ts.createDrive(ctx, hash)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("could not extract response body: %v", err)
+	}
+
+	return fmt.Errorf("failed to create drive. Endpoint: %s, Status: %d, Body: %s", endpoint, resp.StatusCode, body)
 }
 
 func (ts *TestStep) deleteDrive(ctx xcontext.Context) error {
