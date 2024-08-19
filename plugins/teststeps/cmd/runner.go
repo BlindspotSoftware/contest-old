@@ -6,6 +6,7 @@ import (
 	"io"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/linuxboot/contest/pkg/event/testevent"
 	"github.com/linuxboot/contest/pkg/target"
@@ -87,6 +88,14 @@ func (ts *TestStep) runCMD(ctx xcontext.Context, outputBuf *strings.Builder, tra
 		return err
 	}
 
+	stdoutCh := make(chan []byte)
+	stderrCh := make(chan []byte)
+	go func() {
+		stdout, stderr := getOutputFromReader(stdoutPipe, stderrPipe, outputBuf)
+		stdoutCh <- stdout
+		stderrCh <- stderr
+	}()
+
 	// try to start the process, if that succeeds then the outcome is the result of
 	// waiting on the process for its result; this way there's a semantic difference
 	// between "an error occured while launching" and "this was the outcome of the execution"
@@ -95,7 +104,9 @@ func (ts *TestStep) runCMD(ctx xcontext.Context, outputBuf *strings.Builder, tra
 		outcome = proc.Wait(ctx)
 	}
 
-	stdout, stderr := getOutputFromReader(stdoutPipe, stderrPipe, outputBuf)
+	// Collect the output
+	stdout := <-stdoutCh
+	stderr := <-stderrCh
 
 	outputBuf.WriteString(fmt.Sprintf("Command Stdout:\n%s\n", string(stdout)))
 	outputBuf.WriteString(fmt.Sprintf("Command Stderr:\n%s\n", string(stderr)))
@@ -118,29 +129,27 @@ func (ts *TestStep) runCMD(ctx xcontext.Context, outputBuf *strings.Builder, tra
 // getOutputFromReader reads data from the provided io.Reader instances
 // representing stdout and stderr, and returns the collected output as byte slices.
 func getOutputFromReader(stdout, stderr io.Reader, outputBuf *strings.Builder) ([]byte, []byte) {
-	// Read from the stdout and stderr pipe readers
-	stdoutBuffer, err := readBuffer(stdout)
-	if err != nil {
-		outputBuf.WriteString(fmt.Sprintf("Failed to read from Stdout buffer: %v\n", err))
-	}
+	var stdoutBuffer, stderrBuffer bytes.Buffer
+	var wg sync.WaitGroup
+	wg.Add(2)
 
-	stderrBuffer, err := readBuffer(stderr)
-	if err != nil {
-		outputBuf.WriteString(fmt.Sprintf("Failed to read from Stderr buffer: %v\n", err))
-	}
+	go func() {
+		defer wg.Done()
+		if _, err := io.Copy(&stdoutBuffer, stdout); err != nil {
+			outputBuf.WriteString(fmt.Sprintf("Failed to read from Stdout buffer: %v\n", err))
+		}
+	}()
 
-	return stdoutBuffer, stderrBuffer
-}
+	go func() {
+		defer wg.Done()
+		if _, err := io.Copy(&stderrBuffer, stderr); err != nil {
+			outputBuf.WriteString(fmt.Sprintf("Failed to read from Stderr buffer: %v\n", err))
+		}
+	}()
 
-// readBuffer reads data from the provided io.Reader and returns it as a byte slice.
-// It dynamically accumulates the data using a bytes.Buffer.
-func readBuffer(r io.Reader) ([]byte, error) {
-	buf := &bytes.Buffer{}
-	_, err := io.Copy(buf, r)
-	if err != nil && err != io.EOF {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+	wg.Wait()
+
+	return stdoutBuffer.Bytes(), stderrBuffer.Bytes()
 }
 
 func (ts *TestStep) parseOutput(outputBuf *strings.Builder, stdout []byte) error {

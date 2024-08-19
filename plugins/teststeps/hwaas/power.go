@@ -293,23 +293,13 @@ func (ts *TestStep) postReset(ctx xcontext.Context, wantState string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	state, err := ts.getState(ctx, reset)
+	if err != nil {
+		return err
+	}
 
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return fmt.Errorf("could not extract response body: %v", err)
-		}
-
-		return fmt.Errorf("reset could not be set to state '%s': %s", wantState, string(body))
-	} else {
-		state, err := ts.getState(ctx, reset)
-		if err != nil {
-			return err
-		}
-
-		if state != wantState {
-			return fmt.Errorf("reset could not be set to state '%s'. State is '%s'", wantState, state)
-		}
+	if state != wantState {
+		return fmt.Errorf("reset could not be set to state '%s'. State is '%s'", wantState, state)
 	}
 
 	return nil
