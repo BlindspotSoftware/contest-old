@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/linuxboot/contest/pkg/event/testevent"
+	"github.com/linuxboot/contest/pkg/events"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
@@ -56,7 +57,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		err := fmt.Errorf("failed to create transport: %w", err)
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
 
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
+		return events.EmitError(ctx, outputBuf.String(), target, r.ev)
 	}
 
 	switch r.ts.Command {
@@ -64,35 +65,35 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		if _, err = r.ts.enrollKeys(ctx, &outputBuf, transportProto); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
-			return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
+			return events.EmitError(ctx, outputBuf.String(), target, r.ev)
 		}
 
 	case "rotate-key":
 		if _, err = r.ts.rotateKeys(ctx, &outputBuf, transportProto); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
-			return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
+			return events.EmitError(ctx, outputBuf.String(), target, r.ev)
 		}
 
 	case "custom-key":
 		if _, err = r.ts.customKey(ctx, &outputBuf, transportProto); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
-			return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
+			return events.EmitError(ctx, outputBuf.String(), target, r.ev)
 		}
 
 	case "reset":
 		if _, err = r.ts.reset(ctx, &outputBuf, transportProto); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
-			return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
+			return events.EmitError(ctx, outputBuf.String(), target, r.ev)
 		}
 
 	case "status":
 		if _, err = r.ts.getStatus(ctx, &outputBuf, transportProto, r.ts.Expect.SetupMode, r.ts.Expect.SecureBoot); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
-			return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
+			return events.EmitError(ctx, outputBuf.String(), target, r.ev)
 		}
 
 	default:
@@ -103,7 +104,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		return err
 	}
 
-	return emitStdout(ctx, outputBuf.String(), target, r.ev)
+	return events.EmitLog(ctx, outputBuf.String(), target, r.ev)
 }
 
 func (ts *TestStep) checkInstalled(

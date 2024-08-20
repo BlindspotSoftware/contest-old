@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/linuxboot/contest/pkg/event/testevent"
+	"github.com/linuxboot/contest/pkg/events"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/xcontext"
 	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
@@ -46,10 +47,10 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	if err := r.ts.runFwHunt(ctx, &outputBuf, transport); err != nil {
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
 
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
+		return events.EmitError(ctx, outputBuf.String(), target, r.ev)
 	}
 
-	return emitStdout(ctx, outputBuf.String(), target, r.ev)
+	return events.EmitLog(ctx, outputBuf.String(), target, r.ev)
 }
 
 func (ts *TestStep) runFwHunt(ctx xcontext.Context, outputBuf *strings.Builder, transport transport.Transport,

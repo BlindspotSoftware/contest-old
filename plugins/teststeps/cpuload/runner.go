@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/linuxboot/contest/pkg/event/testevent"
+	"github.com/linuxboot/contest/pkg/events"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
@@ -52,7 +53,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		err := fmt.Errorf("failed to create transport: %w", err)
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
 
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
+		return events.EmitError(ctx, outputBuf.String(), target, r.ev)
 	}
 
 	if r.ts.Duration != "" {
@@ -62,10 +63,10 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	}
 
 	if err := r.ts.runLoad(ctx, &outputBuf, transportProto); err != nil {
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
+		return events.EmitError(ctx, outputBuf.String(), target, r.ev)
 	}
 
-	return emitStdout(ctx, outputBuf.String(), target, r.ev)
+	return events.EmitLog(ctx, outputBuf.String(), target, r.ev)
 }
 
 func (ts *TestStep) runLoad(ctx xcontext.Context, outputBuf *strings.Builder, transport transport.Transport,

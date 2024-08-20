@@ -66,7 +66,7 @@ There are two additional functions, which also should be implemented: `New` and 
 ```
 // Load returns the name, factory and events which are needed to register the step.
 func Load() (string, test.TestStepFactory, []event.Name) {
-    return Name, New, Events
+    return Name, New, events.Events
 }
 ```
 

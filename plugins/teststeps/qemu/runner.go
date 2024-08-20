@@ -10,6 +10,7 @@ import (
 
 	expect "github.com/google/goexpect"
 	"github.com/linuxboot/contest/pkg/event/testevent"
+	"github.com/linuxboot/contest/pkg/events"
 	"github.com/linuxboot/contest/pkg/multiwriter"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/xcontext"
@@ -39,10 +40,10 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	if err := r.ts.runQemu(ctx, &outputBuf); err != nil {
 		outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
+		return events.EmitError(ctx, outputBuf.String(), target, r.ev)
 	}
 
-	return emitStdout(ctx, outputBuf.String(), target, r.ev)
+	return events.EmitLog(ctx, outputBuf.String(), target, r.ev)
 }
 
 func (ts *TestStep) runQemu(ctx xcontext.Context, outputBuf *strings.Builder) error {

@@ -15,6 +15,7 @@ import (
 
 	"github.com/linuxboot/contest/pkg/event"
 	"github.com/linuxboot/contest/pkg/event/testevent"
+	"github.com/linuxboot/contest/pkg/events"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
@@ -30,8 +31,7 @@ var Events = []event.Name{}
 var Clock clock.Clock
 
 // Step implements an echo-style printing plugin.
-type Step struct {
-}
+type Step struct{}
 
 // New initializes and returns a new EchoStep. It implements the TestStepFactory
 // interface.
@@ -41,7 +41,7 @@ func New() test.TestStep {
 
 // Load returns the name, factory and events which are needed to register the step.
 func Load() (string, test.TestStepFactory, []event.Name) {
-	return Name, New, Events
+	return Name, New, events.Events
 }
 
 // Name returns the name of the Step
@@ -58,7 +58,6 @@ func sleepTime(secStr string) (time.Duration, error) {
 		return 0, errors.New("seconds cannot be negative in slowecho parameters")
 	}
 	return time.Duration(seconds*1000) * time.Millisecond, nil
-
 }
 
 // ValidateParameters validates the parameters that will be passed to the Run
