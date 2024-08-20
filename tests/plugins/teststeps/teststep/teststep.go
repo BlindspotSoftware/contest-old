@@ -15,6 +15,7 @@ import (
 
 	"github.com/linuxboot/contest/pkg/event"
 	"github.com/linuxboot/contest/pkg/event/testevent"
+	"github.com/linuxboot/contest/pkg/events"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
@@ -145,5 +146,5 @@ func New() test.TestStep {
 
 // Load returns the name, factory and events which are needed to register the step.
 func Load() (string, test.TestStepFactory, []event.Name) {
-	return Name, New, Events
+	return Name, New, events.Events
 }

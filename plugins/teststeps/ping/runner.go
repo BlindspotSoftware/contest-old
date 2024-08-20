@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/linuxboot/contest/pkg/event/testevent"
+	"github.com/linuxboot/contest/pkg/events"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/xcontext"
 	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
@@ -43,10 +44,10 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	// for any ambiguity, outcome is an error interface, but it encodes whether the process
 	// was launched sucessfully and it resulted in a failure; err means the launch failed
 	if err := r.runPing(&outputBuf); err != nil {
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
+		return events.EmitError(ctx, outputBuf.String(), target, r.ev)
 	}
 
-	return emitStdout(ctx, outputBuf.String(), target, r.ev)
+	return events.EmitLog(ctx, outputBuf.String(), target, r.ev)
 }
 
 func (r *TargetRunner) runPing(outputBuf *strings.Builder) error {

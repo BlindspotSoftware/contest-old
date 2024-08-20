@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/linuxboot/contest/pkg/event/testevent"
+	"github.com/linuxboot/contest/pkg/events"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
@@ -50,7 +51,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		err := fmt.Errorf("failed to create transport: %w", err)
 		stderrMsg.WriteString(fmt.Sprintf("%v", err))
 
-		return emitStderr(ctx, EventStderr, stderrMsg.String(), target, r.ev, err)
+		return events.EmitError(ctx, stderrMsg.String(), target, r.ev)
 	}
 
 	switch r.ts.Command {
@@ -58,24 +59,24 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		if err := r.ts.coreCmd(ctx, &stdoutMsg, &stderrMsg, transportProto); err != nil {
 			stderrMsg.WriteString(fmt.Sprintf("%v\n", err))
 
-			return emitStderr(ctx, EventStderr, stderrMsg.String(), target, r.ev, err)
+			return events.EmitError(ctx, stderrMsg.String(), target, r.ev)
 		}
 
 	case profile:
 		if err := r.ts.profileCmd(ctx, &stdoutMsg, &stderrMsg, transportProto); err != nil {
 			stderrMsg.WriteString(fmt.Sprintf("%v\n", err))
 
-			return emitStderr(ctx, EventStderr, stderrMsg.String(), target, r.ev, err)
+			return events.EmitError(ctx, stderrMsg.String(), target, r.ev)
 		}
 
 	default:
 		err := fmt.Errorf("Command '%s' is not valid. Possible values are '%s'.", r.ts.Command, core)
 		stderrMsg.WriteString(fmt.Sprintf("%v\n", err))
 
-		return emitStderr(ctx, EventStderr, stderrMsg.String(), target, r.ev, err)
+		return events.EmitError(ctx, stderrMsg.String(), target, r.ev)
 	}
 
-	if err := emitEvent(ctx, EventStdout, eventPayload{Msg: stdoutMsg.String()}, target, r.ev); err != nil {
+	if err := events.EmitLog(ctx, stdoutMsg.String(), target, r.ev); err != nil {
 		return fmt.Errorf("cannot emit event: %v", err)
 	}
 

@@ -10,6 +10,7 @@ import (
 	"github.com/insomniacslk/xjson"
 	"github.com/linuxboot/contest/pkg/event"
 	"github.com/linuxboot/contest/pkg/event/testevent"
+	"github.com/linuxboot/contest/pkg/events"
 	"github.com/linuxboot/contest/pkg/test"
 	"github.com/linuxboot/contest/pkg/xcontext"
 	"github.com/linuxboot/contest/plugins/teststeps"
@@ -100,7 +101,7 @@ func New() test.TestStep {
 // Needed for the Teststep interface. Returns the Name, the New() Function and
 // the events the teststep can emit (which are no events).
 func Load() (string, test.TestStepFactory, []event.Name) {
-	return Name, New, Events
+	return Name, New, events.Events
 }
 
 // Name returns the name of the Step

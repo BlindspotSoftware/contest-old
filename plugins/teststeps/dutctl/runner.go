@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/linuxboot/contest/pkg/event/testevent"
+	"github.com/linuxboot/contest/pkg/events"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/xcontext"
 	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
@@ -60,27 +61,27 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		if err := r.powerCmds(ctx, &stdoutMsg, &stderrMsg); err != nil {
 			stderrMsg.WriteString(fmt.Sprintf("%v\n", err))
 
-			return emitStderr(ctx, EventStderr, stderrMsg.String(), target, r.ev, err)
+			return events.EmitError(ctx, stderrMsg.String(), target, r.ev)
 		}
 	case "flash":
 		if err := r.flashCmds(ctx, &stdoutMsg, &stderrMsg); err != nil {
 			stderrMsg.WriteString(fmt.Sprintf("%v\n", err))
 
-			return emitStderr(ctx, EventStderr, stderrMsg.String(), target, r.ev, err)
+			return events.EmitError(ctx, stderrMsg.String(), target, r.ev)
 		}
 
 	case "serial":
 		if err := r.serialCmds(ctx, &stdoutMsg, &stderrMsg); err != nil {
 			stderrMsg.WriteString(fmt.Sprintf("%v\n", err))
 
-			return emitStderr(ctx, EventStderr, stderrMsg.String(), target, r.ev, err)
+			return events.EmitError(ctx, stderrMsg.String(), target, r.ev)
 		}
 
 	default:
 		return fmt.Errorf("Command '%s' is not valid. Possible values are 'power', 'flash' and 'serial'.", r.ts.Command)
 	}
 
-	if err := emitEvent(ctx, EventStdout, eventPayload{Msg: stdoutMsg.String()}, target, r.ev); err != nil {
+	if err := events.EmitLog(ctx, stdoutMsg.String(), target, r.ev); err != nil {
 		return fmt.Errorf("cannot emit event: %v", err)
 	}
 

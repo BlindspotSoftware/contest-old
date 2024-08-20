@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/linuxboot/contest/pkg/event/testevent"
+	"github.com/linuxboot/contest/pkg/events"
 	"github.com/linuxboot/contest/pkg/target"
 	"github.com/linuxboot/contest/pkg/xcontext"
 	"github.com/linuxboot/contest/plugins/teststeps/abstraction/options"
@@ -59,31 +60,31 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		}
 
 		if try == 4 {
-			return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
+			return events.EmitError(ctx, outputBuf.String(), target, r.ev)
 		}
 
 	case flash:
 		if err := r.ts.flashCmds(ctx, &outputBuf); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
-			return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
+			return events.EmitError(ctx, outputBuf.String(), target, r.ev)
 		}
 
 	case keyboard:
 		if err := r.ts.keyboardCmds(ctx, &outputBuf); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
-			return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
+			return events.EmitError(ctx, outputBuf.String(), target, r.ev)
 		}
 
 	default:
 		err := fmt.Errorf("Command '%s' is not valid. Possible values are 'power', 'flash' and 'keyboard'.", r.ts.Command)
 		outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
-		return emitStderr(ctx, outputBuf.String(), target, r.ev, err)
+		return events.EmitError(ctx, outputBuf.String(), target, r.ev)
 	}
 
-	return emitStdout(ctx, outputBuf.String(), target, r.ev)
+	return events.EmitLog(ctx, outputBuf.String(), target, r.ev)
 }
 
 // HTTPRequest triggerers a http request and returns the response. The parameter that can be set are:
