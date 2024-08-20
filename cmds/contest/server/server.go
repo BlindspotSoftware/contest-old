@@ -46,6 +46,7 @@ import (
 	uri "github.com/linuxboot/contest/plugins/testfetchers/uri"
 
 	// the teststep plugins
+	binarly "github.com/linuxboot/contest/plugins/teststeps/binarly"
 	bios_certificate "github.com/linuxboot/contest/plugins/teststeps/bios_certificate"
 	bios_setting_get "github.com/linuxboot/contest/plugins/teststeps/bios_settings_get"
 	bios_setting_set "github.com/linuxboot/contest/plugins/teststeps/bios_settings_set"
@@ -123,30 +124,34 @@ func GetPluginConfig() *PluginConfig {
 	var pc PluginConfig
 	pc.TargetManagerLoaders = append(pc.TargetManagerLoaders, csvtargetmanager.Load)
 	pc.TargetManagerLoaders = append(pc.TargetManagerLoaders, targetlist.Load)
+
 	pc.TestFetcherLoaders = append(pc.TestFetcherLoaders, literal.Load)
 	pc.TestFetcherLoaders = append(pc.TestFetcherLoaders, uri.Load)
-	pc.TestStepLoaders = append(pc.TestStepLoaders, cpustats.Load)
+
+	pc.TestStepLoaders = append(pc.TestStepLoaders, binarly.Load)
+	pc.TestStepLoaders = append(pc.TestStepLoaders, bios_certificate.Load)
+	pc.TestStepLoaders = append(pc.TestStepLoaders, bios_setting_get.Load)
+	pc.TestStepLoaders = append(pc.TestStepLoaders, bios_setting_set.Load)
+	pc.TestStepLoaders = append(pc.TestStepLoaders, chipsec.Load)
+	pc.TestStepLoaders = append(pc.TestStepLoaders, cmd.Load)
+	pc.TestStepLoaders = append(pc.TestStepLoaders, copy.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, cpuload.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, cpuset.Load)
-	pc.TestStepLoaders = append(pc.TestStepLoaders, chipsec.Load)
+	pc.TestStepLoaders = append(pc.TestStepLoaders, cpustats.Load)
+	pc.TestStepLoaders = append(pc.TestStepLoaders, dutctl.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, fwhunt.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, fwts.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, firmware_version.Load)
+	pc.TestStepLoaders = append(pc.TestStepLoaders, hwaas.Load)
+	pc.ReporterLoaders = append(pc.ReporterLoaders, noop.Load)
+	pc.TestStepLoaders = append(pc.TestStepLoaders, ping.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, robot.Load)
+	pc.TestStepLoaders = append(pc.TestStepLoaders, s0ix_selftest.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, secureboot.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, sleep.Load)
-	pc.TestStepLoaders = append(pc.TestStepLoaders, s0ix_selftest.Load)
-	pc.TestStepLoaders = append(pc.TestStepLoaders, cmd.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, sysbench.Load)
-	pc.TestStepLoaders = append(pc.TestStepLoaders, copy.Load)
-	pc.TestStepLoaders = append(pc.TestStepLoaders, bios_setting_set.Load)
-	pc.TestStepLoaders = append(pc.TestStepLoaders, bios_setting_get.Load)
-	pc.TestStepLoaders = append(pc.TestStepLoaders, bios_certificate.Load)
-	pc.TestStepLoaders = append(pc.TestStepLoaders, ping.Load)
-	pc.TestStepLoaders = append(pc.TestStepLoaders, dutctl.Load)
-	pc.TestStepLoaders = append(pc.TestStepLoaders, hwaas.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, qemu.Load)
-	pc.ReporterLoaders = append(pc.ReporterLoaders, noop.Load)
+
 	pc.ReporterLoaders = append(pc.ReporterLoaders, targetsuccess.Load)
 
 	return &pc
