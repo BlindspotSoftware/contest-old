@@ -25,9 +25,9 @@ var Events = []event.Name{
 	EventOutput,
 }
 
-type component struct {
-	Component string          `json:"component"`
-	Data      json.RawMessage `json:"data"`
+type Component struct {
+	Name string `json:"name"`
+	Data []byte `json:"data"`
 }
 
 type payload struct {
@@ -72,10 +72,10 @@ func EmitLog(ctx xcontext.Context, message string, tgt *target.Target, ev testev
 	return nil
 }
 
-func EmitOuput(ctx xcontext.Context, componentName string, data json.RawMessage, tgt *target.Target, ev testevent.Emitter) error {
-	payload := component{
-		Component: componentName,
-		Data:      data,
+func EmitOuput(ctx xcontext.Context, name string, data []byte, tgt *target.Target, ev testevent.Emitter) error {
+	payload := Component{
+		Name: name,
+		Data: data,
 	}
 
 	if err := emitEvent(ctx, EventOutput, payload, tgt, ev); err != nil {
