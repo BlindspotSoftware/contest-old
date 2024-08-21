@@ -56,12 +56,6 @@ func (ts *TestStep) flashWrite(ctx xcontext.Context, outputBuf *strings.Builder,
 		return fmt.Errorf("no file was set to flash target.")
 	}
 
-	if ts.Image != "" {
-		if err := ts.deleteDrive(ctx); err != nil {
-			return err
-		}
-	}
-
 	if err := ts.resetDUT(ctx); err != nil {
 		return err
 	}
@@ -70,6 +64,7 @@ func (ts *TestStep) flashWrite(ctx xcontext.Context, outputBuf *strings.Builder,
 	if err != nil {
 		return err
 	}
+
 	if targetInfo.State == "busy" {
 		return fmt.Errorf("flashing DUT with %s failed: DUT is currently busy.\n", sourceFile)
 	}
@@ -84,9 +79,11 @@ func (ts *TestStep) flashWrite(ctx xcontext.Context, outputBuf *strings.Builder,
 
 	if err := ts.waitTarget(ctx, write); err != nil {
 		outputBuf.WriteString("Retrying to flash DUT again.")
+
 		if err := ts.flashTarget(ctx); err != nil {
 			return fmt.Errorf("flashing DUT with %s failed: %v\n", sourceFile, err)
 		}
+
 		if err := ts.waitTarget(ctx, write); err != nil {
 			return fmt.Errorf("dut is not in expected state after flashing %s: %v", sourceFile, err)
 		}
