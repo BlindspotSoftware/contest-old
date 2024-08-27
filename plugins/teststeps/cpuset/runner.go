@@ -51,7 +51,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		err := fmt.Errorf("failed to create transport: %w", err)
 		stderrMsg.WriteString(fmt.Sprintf("%v", err))
 
-		return events.EmitError(ctx, stderrMsg.String(), target, r.ev)
+		return events.EmitError(ctx, stderrMsg.String(), target, r.ev, err)
 	}
 
 	switch r.ts.Command {
@@ -59,21 +59,21 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		if err := r.ts.coreCmd(ctx, &stdoutMsg, &stderrMsg, transportProto); err != nil {
 			stderrMsg.WriteString(fmt.Sprintf("%v\n", err))
 
-			return events.EmitError(ctx, stderrMsg.String(), target, r.ev)
+			return events.EmitError(ctx, stderrMsg.String(), target, r.ev, err)
 		}
 
 	case profile:
 		if err := r.ts.profileCmd(ctx, &stdoutMsg, &stderrMsg, transportProto); err != nil {
 			stderrMsg.WriteString(fmt.Sprintf("%v\n", err))
 
-			return events.EmitError(ctx, stderrMsg.String(), target, r.ev)
+			return events.EmitError(ctx, stderrMsg.String(), target, r.ev, err)
 		}
 
 	default:
 		err := fmt.Errorf("Command '%s' is not valid. Possible values are '%s'.", r.ts.Command, core)
 		stderrMsg.WriteString(fmt.Sprintf("%v\n", err))
 
-		return events.EmitError(ctx, stderrMsg.String(), target, r.ev)
+		return events.EmitError(ctx, stderrMsg.String(), target, r.ev, err)
 	}
 
 	if err := events.EmitLog(ctx, stdoutMsg.String(), target, r.ev); err != nil {

@@ -53,7 +53,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		err := fmt.Errorf("failed to create transport: %w", err)
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
 
-		return events.EmitError(ctx, outputBuf.String(), target, r.ev)
+		return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
 	if r.ts.Duration != "" {
@@ -63,7 +63,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	}
 
 	if err := r.ts.runLoad(ctx, &outputBuf, transportProto); err != nil {
-		return events.EmitError(ctx, outputBuf.String(), target, r.ev)
+		return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
 	return events.EmitLog(ctx, outputBuf.String(), target, r.ev)

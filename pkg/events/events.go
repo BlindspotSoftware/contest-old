@@ -55,12 +55,12 @@ func emitEvent(ctx xcontext.Context, name event.Name, payload interface{}, tgt *
 }
 
 // EmitError emits the whole error message to Stderr and returns the error
-func EmitError(ctx xcontext.Context, message string, tgt *target.Target, ev testevent.Emitter) error {
+func EmitError(ctx xcontext.Context, message string, tgt *target.Target, ev testevent.Emitter, err error) error {
 	if err := emitEvent(ctx, EventStderr, payload{Msg: message}, tgt, ev); err != nil {
 		return fmt.Errorf("cannot emit event: %v", err)
 	}
 
-	return nil
+	return err
 }
 
 // EmitLog emits the whole message to Stdout

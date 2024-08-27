@@ -60,28 +60,28 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		}
 
 		if try == 4 {
-			return events.EmitError(ctx, outputBuf.String(), target, r.ev)
+			return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 		}
 
 	case flash:
 		if err := r.ts.flashCmds(ctx, &outputBuf); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
-			return events.EmitError(ctx, outputBuf.String(), target, r.ev)
+			return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 		}
 
 	case keyboard:
 		if err := r.ts.keyboardCmds(ctx, &outputBuf); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
-			return events.EmitError(ctx, outputBuf.String(), target, r.ev)
+			return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 		}
 
 	default:
 		err := fmt.Errorf("Command '%s' is not valid. Possible values are 'power', 'flash' and 'keyboard'.", r.ts.Command)
 		outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
-		return events.EmitError(ctx, outputBuf.String(), target, r.ev)
+		return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
 	return events.EmitLog(ctx, outputBuf.String(), target, r.ev)

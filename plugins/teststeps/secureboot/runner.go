@@ -57,7 +57,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		err := fmt.Errorf("failed to create transport: %w", err)
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
 
-		return events.EmitError(ctx, outputBuf.String(), target, r.ev)
+		return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
 	switch r.ts.Command {
@@ -65,35 +65,35 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		if _, err = r.ts.enrollKeys(ctx, &outputBuf, transportProto); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
-			return events.EmitError(ctx, outputBuf.String(), target, r.ev)
+			return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 		}
 
 	case "rotate-key":
 		if _, err = r.ts.rotateKeys(ctx, &outputBuf, transportProto); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
-			return events.EmitError(ctx, outputBuf.String(), target, r.ev)
+			return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 		}
 
 	case "custom-key":
 		if _, err = r.ts.customKey(ctx, &outputBuf, transportProto); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
-			return events.EmitError(ctx, outputBuf.String(), target, r.ev)
+			return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 		}
 
 	case "reset":
 		if _, err = r.ts.reset(ctx, &outputBuf, transportProto); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
-			return events.EmitError(ctx, outputBuf.String(), target, r.ev)
+			return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 		}
 
 	case "status":
 		if _, err = r.ts.getStatus(ctx, &outputBuf, transportProto, r.ts.Expect.SetupMode, r.ts.Expect.SecureBoot); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
-			return events.EmitError(ctx, outputBuf.String(), target, r.ev)
+			return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 		}
 
 	default:

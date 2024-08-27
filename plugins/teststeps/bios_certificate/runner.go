@@ -55,7 +55,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		err := fmt.Errorf("failed to create transport: %w", err)
 		outputBuf.WriteString(fmt.Sprintf("%v", err))
 
-		return events.EmitError(ctx, outputBuf.String(), target, r.ev)
+		return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
 	switch r.ts.Command {
@@ -63,28 +63,28 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		if err := r.ts.runEnable(ctx, &outputBuf, transportProto); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v", err))
 
-			return events.EmitError(ctx, outputBuf.String(), target, r.ev)
+			return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 		}
 
 	case "update":
 		if err := r.ts.runUpdate(ctx, &outputBuf, transportProto); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v", err))
 
-			return events.EmitError(ctx, outputBuf.String(), target, r.ev)
+			return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 		}
 
 	case "disable":
 		if err := r.ts.runDisable(ctx, &outputBuf, transportProto); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v", err))
 
-			return events.EmitError(ctx, outputBuf.String(), target, r.ev)
+			return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 		}
 
 	case "check":
 		if err := r.ts.runCheck(ctx, &outputBuf, transportProto); err != nil {
 			outputBuf.WriteString(fmt.Sprintf("%v", err))
 
-			return events.EmitError(ctx, outputBuf.String(), target, r.ev)
+			return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 		}
 
 	default:

@@ -40,7 +40,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	if err := r.ts.runQemu(ctx, &outputBuf); err != nil {
 		outputBuf.WriteString(fmt.Sprintf("%v\n", err))
 
-		return events.EmitError(ctx, outputBuf.String(), target, r.ev)
+		return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
 	return events.EmitLog(ctx, outputBuf.String(), target, r.ev)

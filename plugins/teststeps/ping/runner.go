@@ -44,7 +44,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 	// for any ambiguity, outcome is an error interface, but it encodes whether the process
 	// was launched sucessfully and it resulted in a failure; err means the launch failed
 	if err := r.runPing(&outputBuf); err != nil {
-		return events.EmitError(ctx, outputBuf.String(), target, r.ev)
+		return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
 	return events.EmitLog(ctx, outputBuf.String(), target, r.ev)

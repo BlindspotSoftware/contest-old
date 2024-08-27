@@ -44,32 +44,26 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 
 	r.ts.writeTestStep(&outputBuf)
 
-	if r.ts.Token == "" {
-		outputBuf.WriteString(fmt.Sprintf("%v", fmt.Errorf("Token is required")))
-
-		return events.EmitError(ctx, outputBuf.String(), target, r.ev)
-	}
-
 	client := &http.Client{}
 
 	id, err := r.ts.postFileToAPI(ctx, client)
 	if err != nil {
 		outputBuf.WriteString(fmt.Sprintf("Failed to post file to binarly: %v", err))
 
-		return events.EmitError(ctx, outputBuf.String(), target, r.ev)
+		return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
 	result, err := r.ts.awaitResult(ctx, client, id)
 	if err != nil {
 		outputBuf.WriteString(fmt.Sprintf("Failed to get results from binarly: %v", err))
 
-		return events.EmitError(ctx, outputBuf.String(), target, r.ev)
+		return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
 	if err := events.EmitOuput(ctx, "binarly", result, target, r.ev); err != nil {
 		outputBuf.WriteString(fmt.Sprintf("Failed to emit output: %v", err))
 
-		return events.EmitError(ctx, outputBuf.String(), target, r.ev)
+		return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
 	return events.EmitLog(ctx, outputBuf.String(), target, r.ev)

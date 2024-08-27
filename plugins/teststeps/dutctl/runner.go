@@ -61,20 +61,20 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		if err := r.powerCmds(ctx, &stdoutMsg, &stderrMsg); err != nil {
 			stderrMsg.WriteString(fmt.Sprintf("%v\n", err))
 
-			return events.EmitError(ctx, stderrMsg.String(), target, r.ev)
+			return events.EmitError(ctx, stderrMsg.String(), target, r.ev, err)
 		}
 	case "flash":
 		if err := r.flashCmds(ctx, &stdoutMsg, &stderrMsg); err != nil {
 			stderrMsg.WriteString(fmt.Sprintf("%v\n", err))
 
-			return events.EmitError(ctx, stderrMsg.String(), target, r.ev)
+			return events.EmitError(ctx, stderrMsg.String(), target, r.ev, err)
 		}
 
 	case "serial":
 		if err := r.serialCmds(ctx, &stdoutMsg, &stderrMsg); err != nil {
 			stderrMsg.WriteString(fmt.Sprintf("%v\n", err))
 
-			return events.EmitError(ctx, stderrMsg.String(), target, r.ev)
+			return events.EmitError(ctx, stderrMsg.String(), target, r.ev, err)
 		}
 
 	default:

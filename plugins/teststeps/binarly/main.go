@@ -62,6 +62,10 @@ func (ts *TestStep) populateParams(stepParams test.TestStepParameters) error {
 		}
 	}
 
+	if ts.Token == "" {
+		return fmt.Errorf("Token is required")
+	}
+
 	return nil
 }
 
