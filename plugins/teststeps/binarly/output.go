@@ -18,8 +18,6 @@ func (ts TestStep) writeTestStep(builders ...*strings.Builder) {
 		builder.WriteString("\n")
 
 		builder.WriteString("  Parameter:\n")
-		builder.WriteString("    Token: *hidden*\n")
-		builder.WriteString(fmt.Sprintf("    URL: %s\n", ts.parameters.URL))
 		builder.WriteString(fmt.Sprintf("    File: %s\n", ts.parameters.File))
 		builder.WriteString("\n")
 
