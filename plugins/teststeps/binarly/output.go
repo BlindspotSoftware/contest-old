@@ -15,7 +15,7 @@ func (ts TestStep) Name() string {
 func (ts TestStep) writeTestStep(builders ...*strings.Builder) {
 	for _, builder := range builders {
 
-		builder.WriteString("\n")
+		builder.WriteString("Input Parameter:\n")
 
 		builder.WriteString("  Parameter:\n")
 		builder.WriteString(fmt.Sprintf("    File: %s\n", ts.parameters.File))
