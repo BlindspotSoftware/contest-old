@@ -61,6 +61,7 @@ import (
 	fwhunt "github.com/linuxboot/contest/plugins/teststeps/fwhunt"
 	fwts "github.com/linuxboot/contest/plugins/teststeps/fwts"
 	hwaas "github.com/linuxboot/contest/plugins/teststeps/hwaas"
+	pikvm "github.com/linuxboot/contest/plugins/teststeps/pikvm"
 	ping "github.com/linuxboot/contest/plugins/teststeps/ping"
 	qemu "github.com/linuxboot/contest/plugins/teststeps/qemu"
 	robot "github.com/linuxboot/contest/plugins/teststeps/robot"
@@ -145,6 +146,7 @@ func GetPluginConfig() *PluginConfig {
 	pc.TestStepLoaders = append(pc.TestStepLoaders, hwaas.Load)
 	pc.ReporterLoaders = append(pc.ReporterLoaders, noop.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, ping.Load)
+	pc.TestStepLoaders = append(pc.TestStepLoaders, pikvm.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, robot.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, s0ix_selftest.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, secureboot.Load)
