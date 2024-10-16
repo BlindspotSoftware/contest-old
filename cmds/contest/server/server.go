@@ -60,6 +60,7 @@ import (
 	firmware_version "github.com/linuxboot/contest/plugins/teststeps/fw_version"
 	fwhunt "github.com/linuxboot/contest/plugins/teststeps/fwhunt"
 	fwts "github.com/linuxboot/contest/plugins/teststeps/fwts"
+	hsi "github.com/linuxboot/contest/plugins/teststeps/hsi"
 	hwaas "github.com/linuxboot/contest/plugins/teststeps/hwaas"
 	pikvm "github.com/linuxboot/contest/plugins/teststeps/pikvm"
 	ping "github.com/linuxboot/contest/plugins/teststeps/ping"
@@ -143,6 +144,7 @@ func GetPluginConfig() *PluginConfig {
 	pc.TestStepLoaders = append(pc.TestStepLoaders, fwhunt.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, fwts.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, firmware_version.Load)
+	pc.TestStepLoaders = append(pc.TestStepLoaders, hsi.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, hwaas.Load)
 	pc.ReporterLoaders = append(pc.ReporterLoaders, noop.Load)
 	pc.TestStepLoaders = append(pc.TestStepLoaders, ping.Load)
