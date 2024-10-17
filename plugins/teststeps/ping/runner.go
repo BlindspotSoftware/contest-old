@@ -1,6 +1,7 @@
 package ping
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strings"
@@ -43,23 +44,22 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 
 	// for any ambiguity, outcome is an error interface, but it encodes whether the process
 	// was launched sucessfully and it resulted in a failure; err means the launch failed
-	if err := r.runPing(&outputBuf); err != nil {
+	if err := r.runPing(ctx, &outputBuf); err != nil {
 		return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
 	return events.EmitLog(ctx, outputBuf.String(), target, r.ev)
 }
 
-func (r *TargetRunner) runPing(outputBuf *strings.Builder) error {
+func (r *TargetRunner) runPing(ctx context.Context, outputBuf *strings.Builder) error {
 	// Set timeout
-	timeTimeout := time.After(time.Duration(r.ts.options.Timeout))
 	ticker := time.NewTicker(time.Second)
 
 	writeCommand(fmt.Sprintf("'%s:%d'", r.ts.Host, r.ts.Port), outputBuf)
 
 	for {
 		select {
-		case <-timeTimeout:
+		case <-ctx.Done():
 			if r.ts.Expect.ShouldFail {
 				outputBuf.WriteString(fmt.Sprintf("Ping Output:\nCouldn't connect to host '%s' on port '%d'", r.ts.Host, r.ts.Port))
 
