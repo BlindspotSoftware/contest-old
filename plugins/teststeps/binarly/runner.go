@@ -60,7 +60,7 @@ func (r *TargetRunner) Run(ctx xcontext.Context, target *target.Target) error {
 		return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)
 	}
 
-	if err := events.EmitOuput(ctx, "binarly", result, target, r.ev); err != nil {
+	if err := events.EmitOutput(ctx, "binarly", result, target, r.ev); err != nil {
 		outputBuf.WriteString(fmt.Sprintf("Failed to emit output: %v", err))
 
 		return events.EmitError(ctx, outputBuf.String(), target, r.ev, err)

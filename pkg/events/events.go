@@ -72,7 +72,7 @@ func EmitLog(ctx xcontext.Context, message string, tgt *target.Target, ev testev
 	return nil
 }
 
-func EmitOuput(ctx xcontext.Context, name string, data []byte, tgt *target.Target, ev testevent.Emitter) error {
+func EmitOutput(ctx xcontext.Context, name string, data []byte, tgt *target.Target, ev testevent.Emitter) error {
 	payload := Component{
 		Name: name,
 		Data: data,
