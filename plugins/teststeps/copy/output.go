@@ -22,6 +22,12 @@ func (ts TestStep) writeTestStep(builders ...*strings.Builder) {
 		}
 		builder.WriteString("\n")
 
+		builder.WriteString("  Parameter:\n")
+		builder.WriteString(fmt.Sprintf("    Source: %s\n", ts.SrcPath))
+		builder.WriteString(fmt.Sprintf("    Destination: %s\n", ts.DstPath))
+		builder.WriteString(fmt.Sprintf("    Recursive: %t\n", ts.Recursive))
+		builder.WriteString("\n")
+
 		builder.WriteString("  Options:\n")
 		builder.WriteString(fmt.Sprintf("    Timeout: %s\n", time.Duration(ts.options.Timeout)))
 		builder.WriteString("\n")
